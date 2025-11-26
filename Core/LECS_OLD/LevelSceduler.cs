@@ -3,9 +3,10 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Core.MemoryManagement;
+using IO.Logging;
 using UserCore;
 
-namespace Core.LECS;
+namespace Core.LECS_OLD;
 
 
 // NOTE: I've been noticing, that
@@ -418,18 +419,51 @@ public unsafe static partial class Engine
 
                     TimeScale = 1,
 
-                    Archetypes = CompactArray.Create<Archetype>(0),
-
-                    Entities = CompactArray.Create<Entity>(0),
-
-                    EntitiesLock = CompactArray.Create<int>(1),
-
                     State = 0,
                 };
 
-                // Reset the absolute lock of the entities
+                // Create the array to hold the entities
+                // of the new level
 
-                nLevel.EntitiesLock[0] ^= nLevel.EntitiesLock[0];
+                ChunkArray.Create(&nLevel.Entities, 0);
+
+                // Create the array to hold the archetypes
+                // of the new level
+
+                ChunkArray.Create(&nLevel.Archetypes, 1);
+
+
+                // Create the default
+                // archetype of the level
+
+                {
+                    // Get the pointer address of the
+                    // first zero archetype
+
+                    Archetype* zeroArchetype = ChunkArray.ReadChunk(&nLevel.Archetypes, 0);
+
+
+                    // Initialise the systems list
+
+                    zeroArchetype->Systems = CompactArray.Create<System>(0);
+
+
+                    // Set the data
+
+                    zeroArchetype->Data = (byte*)NativeMemory.Alloc(sizeof(long));
+
+                    *(long*)zeroArchetype->Data ^= *(long*)zeroArchetype->Data;
+
+
+                    // Set the mask
+
+                    int maskSize = getMaskSize();
+
+                    zeroArchetype->ComponentMask = (int*)NativeMemory.Alloc((nuint)(sizeof(int) * maskSize));
+
+                    for(int i = 0; i < maskSize; i++)
+                        zeroArchetype->ComponentMask[i] ^= zeroArchetype->ComponentMask[i];
+                }
 
 
                 // Check, if the level is a starter
@@ -608,6 +642,11 @@ public unsafe static partial class Engine
     public static float DeltaTime {get; private set;}
 
 
+    // The index of the currently run level
+
+    private static int currentLevelIndex;
+
+
     // The point where the pulses
     // related to the 
 
@@ -645,6 +684,12 @@ public unsafe static partial class Engine
             // Calculate the level's deltatime
 
             DeltaTime = dt * levels[i].TimeScale;
+
+
+            // Broadcast the index of
+            // the currently run level
+
+            currentLevelIndex = i;
 
 
             // Check, if the update method, or
@@ -725,6 +770,8 @@ public unsafe static partial class Engine
     }
 
 
+    // Starts a given level
+
     public static void StartLevel(Type level)
     {
         // Blare an error, if the given
@@ -732,7 +779,7 @@ public unsafe static partial class Engine
 
         if(level.GetCustomAttribute<LevelAttribute>() == null)
         {
-
+            Logger.LogWarning(level.FullName + " is NOT a level.");
 
             return;
         }
@@ -778,18 +825,20 @@ public unsafe static partial class Engine
         // Blare an error, that
         // no level ID field was found
 
-
+        Logger.LogWarning(level.FullName + " is missing it's levelID field.");
     }
 
 
-    public static void EndLevel(Type level)
+    // Ends a given level
+
+    /*public static void EndLevel(Type level)
     {
         // Blare an error, if the given
         // type is not a level
 
         if(level.GetCustomAttribute<LevelAttribute>() == null)
         {
-
+            Logger.LogWarning(level.FullName + " is NOT a level.");
 
             return;
         }
@@ -823,9 +872,99 @@ public unsafe static partial class Engine
 
 #pragma warning disable CS8605
 
-            levels[(int)f.GetValue(null)].State |= LevelState.ShouldEnd;
+            int lID = (int)f.GetValue(null);
 
 #pragma warning restore
+
+
+            // Set the state if the level
+
+            levels[lID].State |= LevelState.ShouldEnd;
+
+
+            // Remove the level's old entity list
+
+            for(int i = 0; i < levels[lID].Entities.Length * LockArray<Entity>.ChunkSize; i++)
+                if(levels[lID].Entities.Elements[i].Name != null)
+                    DeleteEntity(i);
+
+
+            for(int i = 0; i < ChunkArray.Length(levels[lID].Entities); i++)
+            {
+                int* ptr = ChunkArray.LockChunk(&levels[lID].Entities, i);
+
+                for(int j = 0; j < ChunkArray.ChunkLength; j++)
+                    ;
+
+
+            }
+
+            ChunkArray.Delete(&levels[lID].Entities);
+
+
+            // Remove the level's old
+            // archetype list
+
+            for(int i = 0; i < levels[lID].Archetypes.Length * LockArray<Archetype>.ChunkSize; i++)
+            {
+                CompactArray.Delete(levels[lID].Archetypes.Elements[i].Systems);
+
+                NativeMemory.Free(levels[lID].Archetypes.Elements[i].Data);
+
+                NativeMemory.Free(levels[lID].Archetypes.Elements[i].ComponentMask);
+            }
+
+            ChunkArray.Delete(&levels[lID].Archetypes);
+
+
+            // Reset the timescale
+            // of the level
+
+            levels[lID].TimeScale = 1;
+
+
+            // Create the array to hold the entities
+            // of the new level
+
+            ChunkArray.Create(&levels[lID].Entities, 0);
+
+            // Create the array to hold the archetypes
+            // of the new level
+
+            ChunkArray.Create(&levels[lID].Archetypes, 1);
+
+
+            // Create the default
+            // archetype of the level
+
+            {
+                // Get the pointer address of the
+                // first zero archetype
+
+                Archetype* zeroArchetype = &levels[lID].Archetypes.Elements[0];
+
+
+                // Initialise the systems list
+
+                zeroArchetype->Systems = CompactArray.Create<System>(0);
+
+
+                // Set the data
+
+                zeroArchetype->Data = (byte*)NativeMemory.Alloc(sizeof(long));
+
+                *(long*)zeroArchetype->Data ^= *(long*)zeroArchetype->Data;
+
+
+                // Set the mask
+
+                int maskSize = getMaskSize();
+
+                zeroArchetype->ComponentMask = (int*)NativeMemory.Alloc((nuint)(sizeof(int) * maskSize));
+
+                for(int i = 0; i < maskSize; i++)
+                    zeroArchetype->ComponentMask[i] ^= zeroArchetype->ComponentMask[i];
+            }
 
 
             return;
@@ -835,9 +974,8 @@ public unsafe static partial class Engine
         // Blare an error, that
         // no level ID field was found
 
-
-
-    }
+        Logger.LogWarning(level.FullName + " is missing it's levelID field.");
+    }*/
 }
 
 
@@ -917,19 +1055,13 @@ unsafe struct Level
 
 
     // A list of entities
-    // (Compact array)
+    // (Chunk array)
 
     public Entity* Entities;
 
-    // A list of locks for
-    // the entities array
-    // (Compact array)
-
-    public int* EntitiesLock;
-
 
     // A list of archetypes
-    // (Compact array)
+    // (Chunk array)
 
     public Archetype* Archetypes;
 }

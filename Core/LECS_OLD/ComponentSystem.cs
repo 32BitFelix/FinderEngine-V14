@@ -1,13 +1,83 @@
 
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Core.MemoryManagement;
 
-namespace Core.LECS;
+namespace Core.LECS_OLD;
 
 
 public unsafe static partial class Engine
 {
 
+
+    // Returns the size in dwords
+    // of a component mask
+
+    private static int getMaskSize()
+    {
+        // Check, if the following
+        // equation should be incremented
+
+        bool add = CompactArray.Length(components) % 32 > 0;
+
+        // Finally, calculate how big in
+        // dwords the component mask is
+
+        return CompactArray.Length(components) / 32 + *(byte*)&add;
+    }
+
+
+    // Binds a component of the given type
+    // to the given entity
+
+    /*public static void AddComponent<T>(int cID, T value, int eID)
+    {
+        // Save the size of a mask
+
+        int maskSize = getMaskSize();
+
+
+        // Get the ID of the given entity's
+        // archetype
+
+        int aID = levels[currentLevelIndex].Entities.Elements[eID].ArchetypeID;
+
+
+        // Allocate memory for the
+        // component mask resembling
+        // the desired archetype of
+        // the entity
+
+        int* componentMask = stackalloc int[maskSize];
+
+        for(int i = maskSize - 1; i >= 0; i--)
+            componentMask[i] = levels[currentLevelIndex].Archetypes.Elements[aID].ComponentMask[i];
+        
+        componentMask[cID / 32] |= 1 << cID % 32;
+
+
+        // Get the ID of the targeted archetype
+
+        int nAID = 0;
+
+        for(int i = 0; i < levels[currentLevelIndex].Archetypes.Length * LockArray<Architecture>.ChunkSize; i++)
+        {
+            // See if the current archetype's
+            // component mask matches the 
+            // evaluated component mask
+
+            for(int j = maskSize - 1; j >= 0; j--)
+                if(componentMask[j] != levels[currentLevelIndex].Archetypes.Elements[i].ComponentMask[j])
+                    goto next;
+
+
+            break;
+
+            next:
+                ;
+        }
+    }*/
 }
 
 
@@ -62,8 +132,7 @@ public class SystemAttribute : Attribute
 
     public SystemAttribute(SystemState state)
     {
-
-
+        State = state;
     }
 
     // The state of the system assigned

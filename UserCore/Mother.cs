@@ -1,18 +1,58 @@
+using System.Runtime.InteropServices;
 using Core.LECS;
 
 
 namespace UserCore;
 
 
-[Level(true)]
-public static class MotherLevel
+/*[Level(true)]
+public unsafe static class MotherLevel
 {
     public static int LevelID;
 
 
     public static void Start()
     {
-        Console.WriteLine("START");
+        Console.WriteLine("HELLO");
+
+        int first = Engine.CreateEntity();
+
+        Console.WriteLine("FIRST");
+
+        int second = Engine.CreateEntity();
+
+        Console.WriteLine("SECOND");
+
+        int third = Engine.CreateEntity();
+
+        Console.WriteLine(first + " " + second + " " + third);
+
+
+        Engine.DeleteEntity(third);
+
+
+        Engine.BindChild(first, second);
+
+        int* list = Engine.ShowChildren(first);
+
+        Console.WriteLine(list[0]);
+
+        for(int i = 0; i < list[0]; i++)
+            Console.WriteLine(i + ": " + list[i + 1]);
+
+        NativeMemory.Free(list);
+
+
+        Engine.UnbinChild(first, second);
+
+        list = Engine.ShowChildren(first);
+
+        Console.WriteLine(list[0]);
+
+        for(int i = 0; i < list[0]; i++)
+            Console.WriteLine(i + ": " + list[i + 1]);
+
+        NativeMemory.Free(list);
     }
 
 
@@ -20,62 +60,15 @@ public static class MotherLevel
 
     public static void Update()
     {
-        Console.WriteLine("UPD " + cnt);
 
-        cnt++;
-
-        if(cnt == 100)
-        {
-            Engine.EndLevel(typeof(MotherLevel));
-
-            Engine.StartLevel(typeof(Secondary));
-        }
 
     }
 
 
     public static void End()
     {
-        Console.WriteLine("END");
-
-        cnt = 0;
-    }
-}
 
 
-[Level(false)]
-public static class Secondary
-{
-    public static int LevelID;
-
-    public static void Start()
-    {
-        Console.WriteLine("STARTSEC");
-    }
-
-
-    static int cnt;
-
-    public static void Update()
-    {
-        Console.WriteLine("UPDSEC " + cnt);
-
-        cnt++;
-
-        if(cnt == 100)
-        {
-            Engine.EndLevel(typeof(Secondary));
-
-            Engine.StartLevel(typeof(MotherLevel));
-        }
-    }
-
-
-    public static void End()
-    {
-        Console.WriteLine("ENDSEC");
-
-        cnt = 0;
     }
 }
 
@@ -105,8 +98,8 @@ public unsafe static class Accelerator
     }
 
 
-    public static void Update(int* offsets, int offsetAmount)
+    public static void Update(int* offsets)
     {
 
     }
-}
+}*/
