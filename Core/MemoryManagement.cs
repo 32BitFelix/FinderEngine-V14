@@ -944,3 +944,380 @@ public unsafe static class ChunkArray
 
         => ((Chunk<T>*)*array)[chunkIndex + 1].ChunkLock = 0;
 }
+
+
+// An array that is
+// split into
+// different chunks
+// at the heap
+
+public unsafe struct SplitArray<T>
+    where T : unmanaged
+{
+    // The arrays to keep
+    // track of
+
+    public nuint Array;
+
+
+    // Represents the
+    // head of the array
+
+    public struct Header
+    {
+        // The length
+        // of the array
+        // in chunks
+
+        public int Length;
+
+        // The managed thread id
+        // of the thread posing
+        // a total lock to this array
+
+        public int AbsoluteLock;
+
+        // The size of a
+        // chunk in elements.
+        // Bloated, because
+        // it acts as padding too
+
+        public nuint ChunkSize;
+    }
+
+
+    // Holds the reference
+    // to a chunk
+
+    public struct ChunkRef
+    {
+        // The lock acting
+        // on a chunk
+
+        public int ChunkLock;
+
+        // A counter for
+        // seeing how many
+        // times the same
+        // thread has locked
+        // the referenced chunk
+
+        public int SameOn;
+
+        // The reference to
+        // the overseen chunk
+
+        public T* Reference;
+    }
+
+}
+
+
+// Holds extension methods
+// of the split array
+
+public unsafe static class SplitArrayExt
+{
+    // Creates a new Splitarray
+
+    public static void Create<T>(this ref SplitArray<T> array, int length = 0, byte chunkSize = 0xFF)
+        where T : unmanaged
+    {
+        // Allocate some memory for
+        // the given split array
+
+        array.Array = (nuint)AlignedAlloc((nuint)(sizeof(SplitArray<T>.Header) + sizeof(SplitArray<T>.ChunkRef) * length), (nuint)sizeof(nuint));
+
+
+        // Save the length
+        // of the split array
+        // in chunks and set
+        // the absolute lock to zero
+
+        ((SplitArray<T>.Header*)array.Array)->Length = length;
+
+        ((SplitArray<T>.Header*)array.Array)->AbsoluteLock ^= ((SplitArray<T>.Header*)array.Array)->AbsoluteLock;
+
+        ((SplitArray<T>.Header*)array.Array)->ChunkSize = chunkSize;
+
+
+        // Set the chunk references
+
+        for(int i = 0; i < length; i++)
+        {
+            // Set the chunklock to zero
+
+            ((SplitArray<T>.ChunkRef*)array.Array)[i + 1].ChunkLock ^= ((SplitArray<T>.ChunkRef*)array.Array)[i + 1].ChunkLock;            
+
+            // Set the same thread counter
+            // to zero
+
+            ((SplitArray<T>.ChunkRef*)array.Array)[i + 1].SameOn ^= ((SplitArray<T>.ChunkRef*)array.Array)[i + 1].SameOn;
+
+            // Allocate the chunk
+            // for the current chunk ref
+
+            ((SplitArray<T>.ChunkRef*)array.Array)[i + 1].Reference = (T*)AllocZeroed((nuint)sizeof(T) * chunkSize);
+        }
+    }
+
+
+    // Returns the length
+    // of a splitarray
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int Length<T>(this ref SplitArray<T> array)
+        where T : unmanaged
+
+        => ((SplitArray<T>.Header*)array.Array)->Length;
+
+
+    // Resizes a split array
+
+    public static void Resize<T>(this ref SplitArray<T> array, int nLength)
+        where T : unmanaged
+    {
+        // Prematurely end this method,
+        // if the new length is the
+        // same as the current length
+
+        //if(((SplitArray<T>.Header*)array.Array)->Length == nLength)
+        //    return;
+
+
+        // Get the managed thread id
+        // of the calling thread
+
+        int MTID = Environment.CurrentManagedThreadId;
+
+
+        // Try to get the absolute lock
+
+        while(((SplitArray<T>.Header*)array.Array)->AbsoluteLock != MTID)
+            Interlocked.CompareExchange(ref ((SplitArray<T>.Header*)array.Array)->AbsoluteLock, MTID, 0);
+
+
+        // Resize the array
+        // holding references
+        // of the chunks
+
+        array.Array = (nuint)AlignedRealloc((void*)array.Array, (nuint)(sizeof(SplitArray<T>.Header) + sizeof(SplitArray<T>.ChunkRef) * nLength), (nuint)sizeof(nuint));
+
+
+        // Allocate the new chunks
+        // and default the new
+        // chunk references
+
+        for(int i = ((SplitArray<T>.Header*)array.Array)->Length; i < nLength; i++)
+        {
+            ((SplitArray<T>.ChunkRef*)array.Array)[i + 1].ChunkLock ^= ((SplitArray<T>.ChunkRef*)array.Array)[i + 1].ChunkLock;
+
+            ((SplitArray<T>.ChunkRef*)array.Array)[i + 1].SameOn ^= ((SplitArray<T>.ChunkRef*)array.Array)[i + 1].SameOn;
+
+            ((SplitArray<T>.ChunkRef*)array.Array)[i + 1].Reference = (T*)AllocZeroed((nuint)sizeof(T) * ((SplitArray<T>.Header*)array.Array)->ChunkSize);
+        }
+
+
+        // Save the new length
+
+        ((SplitArray<T>.Header*)array.Array)->Length = nLength;
+
+
+        // Release the absolute lock
+
+        ((SplitArray<T>.Header*)array.Array)->AbsoluteLock ^= ((SplitArray<T>.Header*)array.Array)->AbsoluteLock;
+    }
+
+
+    // Locks the chunk
+    // indicated by the
+    // given index by the
+    // calling thread
+
+    public static T* LockChunk<T>(this ref SplitArray<T> array, int chunkIndex)
+        where T : unmanaged
+    {
+        // Increment the chunk index,
+        // to avoid the header part
+
+        chunkIndex++;
+
+
+        // Get the thread
+        // id of the calling thread
+
+        int MTID = Environment.CurrentManagedThreadId;
+
+
+        // Wait out the
+        // absolute lock,
+        // if there is one
+
+        while(((SplitArray<T>.Header*)array.Array)->AbsoluteLock != 0);
+
+
+        // See, if the chunk at
+        // the given index' lock
+        // has the same ID as the
+        // calling thread
+
+        if(MTID == ((SplitArray<T>.ChunkRef*)array.Array)[chunkIndex].ChunkLock)
+        {
+            Interlocked.Increment(ref ((SplitArray<T>.ChunkRef*)array.Array)[chunkIndex].SameOn);
+
+            goto sameMTIDCase;
+        }
+
+
+        // Try to get the lock
+        // of the chunk at the
+        // given index
+
+        while(((SplitArray<T>.ChunkRef*)array.Array)[chunkIndex].ChunkLock != MTID)
+            Interlocked.CompareExchange(ref ((SplitArray<T>.ChunkRef*)array.Array)[chunkIndex].ChunkLock, MTID, 0);
+
+        
+        // At this point, we managed to
+        // receive the lock to the chunk
+        // at the given index
+
+
+        // Jumping point to
+        // skipping the lock
+        // aquiring
+
+        sameMTIDCase:;
+
+
+        // Return the reference
+        // of the chunk at the
+        // given index
+
+        return ((SplitArray<T>.ChunkRef*)array.Array)[chunkIndex].Reference;
+    }
+
+
+    // Releases the chunk
+    // indicated by the
+    // given index by the
+    // calling thread
+
+    public static void ReleaseChunk<T>(this ref SplitArray<T> array, int chunkIndex)
+        where T : unmanaged
+    {
+        // Increment the chunk index,
+        // to avoid the header part
+
+        chunkIndex++;
+
+
+        // If there aren't multiple instances
+        // of the same lock acting on the
+        // chunk at the given index, release
+        // the lock entirely and prematurely
+        // end this method
+
+        if(((SplitArray<T>.ChunkRef*)array.Array)[chunkIndex].SameOn == 0)
+        {
+            ((SplitArray<T>.ChunkRef*)array.Array)[chunkIndex].ChunkLock = 0;
+
+            return;
+        }
+
+
+        // At this point, there still are
+        // multiple instances of the same
+        // lock acting on the chunk at the given index.
+        // Simply reduce the instance count,
+        // to loosen up the lock
+
+        Interlocked.Decrement(ref ((SplitArray<T>.ChunkRef*)array.Array)[chunkIndex].SameOn);
+    }
+
+
+    // Returns the address
+    // of a chunk for only
+    // reading purposes
+
+    public static T* ReadChunk<T>(this ref SplitArray<T> array, int chunkIndex)
+        where T : unmanaged
+    {
+        // Increment the chunk index,
+        // to avoid the header part
+
+        chunkIndex++;
+
+
+        // Wait through the absolute lock,
+        // if there is one
+
+        while(((SplitArray<T>.Header*)array.Array)->AbsoluteLock != 0);
+
+
+        // Return the reference of the
+        // chunk from the chunkref at
+        // the given index
+
+        return ((SplitArray<T>.ChunkRef*)array.Array)[chunkIndex].Reference;
+    }
+
+
+    // Frees all the unmanaged
+    // resources of the given
+    // split array
+
+    public static void Delete<T>(this ref SplitArray<T> array)
+        where T : unmanaged
+    {
+        // Get the managed thread id
+        // of the calling thread
+
+        int MTID = Environment.CurrentManagedThreadId;
+
+
+        // Try to get the absolute lock
+
+        while(((SplitArray<T>.Header*)array.Array)->AbsoluteLock != MTID)
+            Interlocked.CompareExchange(ref ((SplitArray<T>.Header*)array.Array)->AbsoluteLock, MTID, 0);
+
+
+        // Try to get the locks of all chunks
+
+        {
+            // The following algorithm is
+            // a cascading locking mechanism
+
+            // Iterate through each chunk
+
+            for(int i = 0; i < ((SplitArray<T>.Header*)array.Array)->Length; i++)
+            {
+                // Skip the chunk,
+                // if it is already
+                // locked by the
+                // calling thread
+
+                if(((SplitArray<T>.ChunkRef*)array.Array)[i + 1].ChunkLock == MTID)
+                    continue;
+
+
+                // Wait until the lock of the
+                // current chunk has been taken
+
+                while(((SplitArray<T>.ChunkRef*)array.Array)[i + 1].ChunkLock != MTID)
+                    Interlocked.CompareExchange(ref ((SplitArray<T>.ChunkRef*)array.Array)[i + 1].ChunkLock, MTID, 0);
+            }
+        }
+
+
+        // Free the individual chunks
+
+        for(int i = 0; i < ((SplitArray<T>.Header*)array.Array)->Length; i++)
+            Free(((SplitArray<T>.ChunkRef*)array.Array)[i + 1].Reference);
+
+        
+        // Free the array that held the
+        // references of the chunks
+
+        AlignedFree((void*)array.Array);
+    }
+}

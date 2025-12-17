@@ -406,7 +406,7 @@ public unsafe static class WindowManager
 
             GLFW.SwapBuffers(windowPtr);
         }
-
+        
 
         // Call the end of the hooked
         // engine, if it is defined

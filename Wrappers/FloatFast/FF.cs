@@ -1,7 +1,3 @@
-
-
-
-using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace FinderIntrinsics;
@@ -265,4 +261,178 @@ public unsafe static class FloatFast
     // function
     // a, b, t, dst
     public static readonly delegate* unmanaged[Cdecl]<float*, float*, float*, float*, void> Vec4Lerp;
+
+
+    // Copies the given amount of
+    // bytes from the given source
+    // to the given destination
+    public static void Copy(nuint from, nuint to, int copySize)
+    {
+        // Long copy
+
+        {
+            // Initialise the counter
+            // for this loop
+
+            int i = copySize / sizeof(ulong);
+
+            // Decrease the amount to
+            // copy, to what's left
+            // after the long copy
+
+            copySize %= sizeof(ulong);
+
+
+            Console.WriteLine(i + " Long copies");
+
+
+            // Repeat point of the loop
+
+            repeatLong:
+
+
+            // Copy 64 bits
+
+            ((ulong*)to)[i - 1] = ((ulong*)from)[i - 1];
+
+
+            // Decrement the counter
+
+            i--;
+
+            // Repeat the loop,
+            // if the counter 
+            // is still above
+            // or the same as zero
+
+            if(i > 0)
+                goto repeatLong;
+        }
+
+
+        // Int copy
+
+        {
+            // Initialise the counter
+            // for this loop
+
+            int i = copySize / sizeof(uint);
+
+            // Decrease the amount to
+            // copy, to what's left
+            // after the int copy
+
+            copySize %= sizeof(uint);
+
+
+            Console.WriteLine(i + " Int copies");
+
+
+            // Repeat point of the loop
+
+            repeatLong:
+
+
+            // Copy 32 bits
+
+            ((uint*)to)[i - 1] = ((uint*)from)[i - 1];
+
+
+            // Decrement the counter
+
+            i--;
+
+            // Repeat the loop,
+            // if the counter 
+            // is still above
+            // or the same as zero
+
+            if(i > 0)
+                goto repeatLong;
+        }
+
+
+        // Short copy
+
+        {
+            // Initialise the counter
+            // for this loop
+
+            int i = copySize / sizeof(ushort);
+
+            // Decrease the amount to
+            // copy, to what's left
+            // after the short copy
+
+            copySize %= sizeof(ushort);
+
+
+            Console.WriteLine(i + " Short copies");
+
+
+            // Repeat point of the loop
+
+            repeatLong:
+
+
+            // Copy 16 bits
+
+            ((ushort*)to)[i - 1] = ((ushort*)from)[i - 1];
+
+
+            // Decrement the counter
+
+            i--;
+
+            // Repeat the loop,
+            // if the counter 
+            // is still above
+            // or the same as zero
+
+            if(i > 0)
+                goto repeatLong;
+        }
+
+
+        // Byte copy
+
+        {
+            // Initialise the counter
+            // for this loop
+
+            int i = copySize / sizeof(byte);
+
+            // Decrease the amount to
+            // copy, to what's left
+            // after the byte copy
+
+            copySize %= sizeof(byte);
+
+
+            Console.WriteLine(i + " Byte copies");
+
+
+            // Repeat point of the loop
+
+            repeatLong:
+
+
+            // Copy 8 bits
+
+            ((byte*)to)[i - 1] = ((byte*)from)[i - 1];
+
+
+            // Decrement the counter
+
+            i--;
+
+            // Repeat the loop,
+            // if the counter 
+            // is still above
+            // or the same as zero
+
+            if(i > 0)
+                goto repeatLong;
+        }
+    }
 } 

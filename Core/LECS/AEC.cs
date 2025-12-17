@@ -1,5 +1,7 @@
 
 
+using Core.MemoryManagement;
+
 namespace Core.LECS;
 
 
@@ -21,8 +23,14 @@ public unsafe struct Entity
 
     // The IDs of all entities
     // parented by the entity
+    // (Chunk array)
 
-    public int* Children;
+    public SplitArray<int> Children;
+
+    // A helper constant for keeping
+    // track of the total amount of child references
+    // within a chunk
+    public const int ChildrenPerChunk = 8;
 
 
     // The ID of the archetype,
@@ -40,6 +48,12 @@ public unsafe struct Entity
 }
 
 
+// Structs fit with this attribute
+// will be treated as components by the engine
+
+[AttributeUsage(AttributeTargets.Struct)]
+public sealed class ComponentAttribute : Attribute;
+
 // Components represent individual
 // types of data, that collectively
 // define the behaviour of entities
@@ -55,6 +69,13 @@ public unsafe struct Component
     // type in bytes
     
     public int Size;
+
+    // Stores the sizes
+    // of each non static field of the
+    // component type
+    // (Compact array)
+
+    public int* FieldSizes;
 }
 
 
@@ -69,20 +90,39 @@ public unsafe struct Archetype
     // that have a component mask
     // fitting to the one that the
     // archetype has
+    // (Compact array)
 
     public System* Systems;
+
+
+    // A simple lock to indicate,
+    // that the data array of the
+    // archetype is being used
+
+    public int Processed;
 
 
     // References the array
     // that hold the components,
     // aswell as related entity IDs
+    //
+    // Memory layout is as follows:
+    // -------------------------------------------------------------------------------------------
+    // length (int) | entity IDs (int * simdOps) | Components | entity IDs (int * simdOps) | . . .
+    // -------------------------------------------------------------------------------------------
 
     public byte* Data;
+
+
+    // A precalculated stride
+    // for skipping a component chunk
+
+    public int ComponentChunkStride;
 
 
     // A mask representing the
     // components composing this
     // archetype
 
-    public long* ComponentMask;
+    public ulong* ComponentMask;
 }

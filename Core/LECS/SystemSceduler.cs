@@ -8,7 +8,7 @@ namespace Core.LECS;
 // by the engine
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
-public class SystemAttribute : Attribute
+public sealed class SystemAttribute : Attribute
 {
     // Instance constructor 
 
@@ -70,7 +70,7 @@ public unsafe struct System
     // Displays which components
     // are stored within the archetype
 
-    public long* ComponentMask;
+    public ulong* ComponentMask;
 }
 
 
