@@ -1,6 +1,6 @@
 
 using System.Runtime.InteropServices;
-using Core.MemoryManagement;
+using Core;
 
 namespace IO.Logging;
 
@@ -8,9 +8,7 @@ namespace IO.Logging;
 // The logger keeps track
 // of notable events in
 // the engine, like warnings
-// and errors. All logs will
-// be saved, as soon as the
-// engine reaches it's end
+// and errors
 
 // TODO: Maybe make string
 // concatenation low level,
@@ -22,23 +20,21 @@ public unsafe static class Logger
 
     static Logger()
     {
-        logs = CompactArray.Create<Log>(0);
+        // Dispose of the previous log file
 
-        logsLock = 0;
-
-        HasError = false;
+        File.Delete(TargetFile);
     }
 
 
-    // The list of all logs
-    // made throughout runtime
-    // (Compact array)
+    // The path to write the
+    // logs to
 
-    private static Log* logs;
+    private const string TargetFile = "./EngineEvents.log";
+
 
     // The lock of the logs array
 
-    private static int logsLock;
+    private static int logsLock = 0;
 
 
     // Saves the given message into logs
@@ -58,46 +54,22 @@ public unsafe static class Logger
 
         nMsg = string.Concat(nMsg, message);
 
-        nMsg = string.Concat(nMsg, "\n");
+        nMsg = string.Concat(nMsg, Environment.NewLine);
 
 
         // Create the new log
 
-        Log nLog = new((char*)Marshal.StringToHGlobalUni(nMsg));
-
-
+        Job job = new()
         {
-            // Retrieve the ID of the current thread
+            Method = (delegate*<nuint, void>)&writeLog,
 
-            int currentThreadID = Environment.CurrentManagedThreadId;
-
-            
-            // Get the lock of the logs
-            // until successful
-
-            repeat:
-            
-            Interlocked.CompareExchange(ref logsLock, currentThreadID, 0);
-
-            if(logsLock != currentThreadID)
-                goto repeat;
-        }    
+            Overload = (nuint)Marshal.StringToHGlobalUni(nMsg)
+        };
 
 
-        // Resize the logs array
+        // Run the job
 
-        fixed(Log** ptr = &logs)
-            CompactArray.Resize(ptr, CompactArray.Length(logs) + 1);
-
-
-        // Save the new log
-
-        logs[CompactArray.Length(logs) - 1] = nLog;
-
-
-        // Release the lock
-
-        logsLock = 0;
+        JobCenter.RunJob(job);
     }
 
 
@@ -118,53 +90,29 @@ public unsafe static class Logger
 
         nMsg = string.Concat(nMsg, message);
 
-        nMsg = string.Concat(nMsg, "\n");
+        nMsg = string.Concat(nMsg, Environment.NewLine);
 
 
         // Create the new log
 
-        Log nLog = new((char*)Marshal.StringToHGlobalUni(nMsg));
-
-
+        Job job = new()
         {
-            // Retrieve the ID of the current thread
+            Method = (delegate*<nuint, void>)&writeLog,
 
-            int currentThreadID = Environment.CurrentManagedThreadId;
-
-            
-            // Get the lock of the logs
-            // until successful
-
-            repeat:
-            
-            Interlocked.CompareExchange(ref logsLock, currentThreadID, 0);
-
-            if(logsLock != currentThreadID)
-                goto repeat;
-        }    
+            Overload = (nuint)Marshal.StringToHGlobalUni(nMsg)
+        };
 
 
-        // Resize the logs array
+        // Run the job
 
-        fixed(Log** ptr = &logs)
-            CompactArray.Resize(ptr, CompactArray.Length(logs) + 1);
-
-
-        // Save the new log
-
-        logs[CompactArray.Length(logs) - 1] = nLog;
-
-
-        // Release the lock
-
-        logsLock = 0;
+        JobCenter.RunJob(job);
     }
 
 
     // A global field, that shows,
     // if an error has been logged before
 
-    public static bool HasError {get; private set;}
+    public static bool HasError {get; private set;} = false;
 
     // Saves the given message as an error
     // and sets the haserror flag to true
@@ -192,118 +140,62 @@ public unsafe static class Logger
 
         nMsg = string.Concat(nMsg, message);
 
-        nMsg = string.Concat(nMsg, "\n");
+        nMsg = string.Concat(nMsg, Environment.NewLine);
 
 
         // Create the new log
 
-        Log nLog = new((char*)Marshal.StringToHGlobalUni(nMsg));
-
-
+        Job job = new()
         {
-            // Retrieve the ID of the current thread
+            Method = (delegate*<nuint, void>)&writeLog,
 
-            int currentThreadID = Environment.CurrentManagedThreadId;
-
-            
-            // Get the lock of the logs
-            // until successful
-
-            repeat:
-            
-            Interlocked.CompareExchange(ref logsLock, currentThreadID, 0);
-
-            if(logsLock != currentThreadID)
-                goto repeat;
-        }    
+            Overload = (nuint)Marshal.StringToHGlobalUni(nMsg)
+        };
 
 
-        // Resize the logs array
+        // Run the job
 
-        fixed(Log** ptr = &logs)
-            CompactArray.Resize(ptr, CompactArray.Length(logs) + 1);
-
-
-        // Save the new log
-
-        logs[CompactArray.Length(logs) - 1] = nLog;
-
-
-        // Release the lock
-
-        logsLock = 0;
+        JobCenter.RunJob(job);
     }
 
 
-    // Saves the logs onto a file
-    // when called
+    // Method that is run asynchronously
+    // for the sake of saving a log to the
+    // log file
 
-    public static void SaveLogs()
+    private static void writeLog(nuint Sentence)
     {
-        // Open a stream to the
-        // file to log to
+        // Get the lock of the log file
 
-        using(FileStream fs = File.Create("./EngineEvents.Log"))
+        int mtID = Environment.CurrentManagedThreadId;
+
+        while(logsLock != mtID)
+            Interlocked.CompareExchange(ref logsLock, mtID, 0);
+
+
+        using(FileStream fs = File.Open(TargetFile, FileMode.Append))
         {
-            // Iterate through each log
-
-            for(int i = 0; i < CompactArray.Length(logs); i++)
+            for(int c = 0; ; c++)
             {
-                // Iterate through each character
-                // in the message of the log
+                if(((char*)Sentence)[c] == '\0')
+                    break;
 
-                for(int c = 0; ; c++)
-                {
-                    if(logs[i].Sentence[c] == '\0')
-                        break;
+                byte* b = (byte*)&((char*)Sentence)[c];
 
-                    byte* b = (byte*)&logs[i].Sentence[c];
+                fs.WriteByte(b[0]);
 
-                    fs.WriteByte(b[0]);
-
-                    fs.WriteByte(b[1]);
-                }
+                fs.WriteByte(b[1]);
             }
-
-
         }
-    }
 
 
-    // Holds a log and
-    // it's severity,
-    // aswell as the
-    // time it was created
+        // Release the lock to the file
 
-    private unsafe struct Log(char* _sentence)
-    {
-        // The content of the log
-
-        public readonly char* Sentence = _sentence;
-    }
+        logsLock ^= logsLock;
 
 
-    // Represents the severity
-    // of a log
+        // Release the unmanaged resources
 
-    private enum LogSeverity : byte
-    {
-        // A simple message.
-        // Just important enough
-        // to get a mention
-
-        Message = 0,
-
-        // Something important
-        // has happened or there
-        // is an error on the verge
-
-        Warning = 1,
-
-        // Something went wrong.
-        // The engine will end at
-        // the nearest possibility
-
-        Error = 2
+        Marshal.FreeHGlobal((nint)Sentence);
     }
 }

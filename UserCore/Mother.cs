@@ -1,88 +1,316 @@
+using OpenTK.Mathematics;
+using Core.LECSSimple;
+using Core;
+using Core.Shimshek;
+using IO.Input;
+using OpenTK.Windowing.GraphicsLibraryFramework;
+using IO;
 using System.Runtime.InteropServices;
-using Core.LECS;
+
+namespace UserCore.Mother;
 
 
-namespace UserCore;
 
 
 [Level(true)]
-public unsafe static class MainLevel
+public unsafe static class Main
 {
+
     public static int LevelID;
+
+
+    public static int pCamera, Redhead, Hourglass;
+
+
+    public static int* ents;
 
 
     public static void Start()
     {
-        Console.WriteLine("Starting");
+        int* comps = stackalloc int[2];
+
+        comps[0] = Transform.ComponentID;
+
+        comps[1] = Sprite.ComponentID;
 
 
-        int* ents = stackalloc int[64];
+        fixed(int* ptr = &Redhead)
+            Finder.CreateEntities(ptr, 1);
 
-        Engine.CreateEntities(ents, 64);
+        Finder.AddComponents(Redhead, comps, 2);
 
-
-        for(int i = 0; i < 64; i++)
         {
-            Console.WriteLine(ents[i]);
+            Transform* tran = (Transform*)Finder.GetComponent(Redhead, Transform.ComponentID);
+
+            tran->Scale = (1, 1, 1, 1);
+
+            tran->Rotation = (0, 0, 0, 0);
+
+            tran->Translation = (0, 0, 0, 0);
+
+
+            Sprite* spr = (Sprite*)Finder.GetComponent(Redhead, Sprite.ComponentID);
+
+            spr->RGBA = 255 | (255 << 8) | (255 << 16) | (255 << 24);
+
+            spr->Texture.Create("./Resources/Textures/MisterRedhead.png", false);
         }
 
 
-        Engine.BindChildren(ents[0], &ents[10], 5);
+        fixed(int* ptr = &Hourglass)
+            Finder.CreateEntities(ptr, 1);
 
+        Finder.AddComponents(Hourglass, comps, 2);
 
-        int[] children = Engine.ShowChildren(ents[0]);
-
-        for(int i = 0; i < children.Length; i++)
         {
-            Console.WriteLine(children[i] + " CHILD");
+            Transform* tran = (Transform*)Finder.GetComponent(Hourglass, Transform.ComponentID);
+
+            tran->Scale = (1, 1, 1, 1);
+
+            tran->Rotation = (0, 0, 0, 0);
+
+            tran->Translation = (2, 0, 0, 0);
+
+
+            Sprite* spr = (Sprite*)Finder.GetComponent(Hourglass, Sprite.ComponentID);
+
+            spr->RGBA = 255 | (255 << 8) | (255 << 16) | (255 << 24);
+
+            spr->Texture.Create("./Resources/Textures/Hourglass.png", false);
         }
 
 
-        Engine.UnbindChildren(ents[0], &ents[10], 3);
+        const int entCount = 1000;
 
+        ents = (int*)NativeMemory.Alloc(sizeof(int) * entCount);
 
-        children = Engine.ShowChildren(ents[0]);
+        Finder.CreateEntities(ents, entCount);
 
-        for(int i = 0; i < children.Length; i++)
+        for(int i = 0; i < entCount; i++)
+            Finder.AddComponents(ents[i], comps, 2);
+
+        for(int i = 0; i < entCount; i++)
         {
-            Console.WriteLine(children[i] + " CHILD");
+            Transform* tran = (Transform*)Finder.GetComponent(ents[i], Transform.ComponentID);
+
+            tran->Scale = (1, 1, 1, 1);
+
+            tran->Rotation = (0, 0, 0, 0);
+
+            tran->Translation = (i * 2, -2, 0, 0);
+
+
+            Sprite* spr = (Sprite*)Finder.GetComponent(ents[i], Sprite.ComponentID);
+
+            spr->RGBA = 255 | (255 << 8) | (255 << 16) | (255 << 24);
+
+            int color = Random.Shared.Next();
+
+            spr->Texture.Create((byte*)&color, 1, 1, false);
+        }                 
+
+
+
+        int* camComps = stackalloc int[2];
+
+        camComps[0] = Transform.ComponentID;
+
+        camComps[1] = Camera.ComponentID;
+
+
+        fixed(int* ptr = &pCamera)    
+            Finder.CreateEntities(ptr, 1);
+
+        Finder.AddComponents(pCamera, camComps, 2);
+
+        {
+            Transform* tran = (Transform*)Finder.GetComponent(pCamera, Transform.ComponentID);
+
+            tran->Scale = (1, 1, 1, 1);
+
+            tran->Rotation = (0, 0, 0, 0);
+
+            tran->Translation = (0, 0, 10, 0);
+
+
+            Camera* cam = (Camera*)Finder.GetComponent(pCamera, Camera.ComponentID);
+
+            cam->FarClip = 100;
+
+            cam->NearClip = 0.1f;
+
+            cam->FieldOfView = 90;
+
+            cam->IsOrthographic = true;
+
+            cam->ProjectionSize = 30;
         }
 
 
-        Console.WriteLine(Engine.ShowParent(ents[14]) + " PARENT");
+        WindowManager.WindowState = OpenTK.Windowing.Common.WindowState.Fullscreen;
 
-
-        Engine.DeleteEntities(ents, 64);
+        WindowManager.CursorState = CursorModeValue.CursorDisabled;
     }
 
 
     public static void Update()
+    {  
+        if(KBM.IsHeld((int)Keys.Escape))
+            WindowManager.CloseWindow();
+
+
+        Transform* camTran = (Transform*)Finder.GetComponent(pCamera, Transform.ComponentID);
+
+
+        bool up = KBM.IsHeld((int)Keys.W);
+
+        bool down = KBM.IsHeld((int)Keys.S);
+
+        bool left = KBM.IsHeld((int)Keys.A);
+
+        bool right = KBM.IsHeld((int)Keys.D);
+
+
+        const float speed = 50;
+
+
+        float delta = speed * Finder.DeltaTime;
+
+
+        camTran->Translation.Y += (*(byte*)&up & 1) * delta;
+
+        camTran->Translation.Y -= (*(byte*)&down & 1) * delta;
+
+        camTran->Translation.X -= (*(byte*)&left & 1) * delta;
+
+        camTran->Translation.X += (*(byte*)&right & 1) * delta;
+    }
+
+
+    public static void NarrowPhase()
     {
 
-        //Console.WriteLine("Updating");
+
 
     }
 
 
-    public static void End()
+    public static void BroadPhase()
     {
 
-        Console.WriteLine("Ending");
+
+
+    }
+
+
+    public static void PreRender()
+    {
+
+
+
+    }
+
+
+    public static void Render()
+    {
+
+
+
+    }
+
+
+    public static void PostRender()
+    {
+
+
 
     }
 }
 
 
-[System]
-public unsafe static class TestSystem
+[System(false, false)]
+public unsafe static class TransformProcessor
 {
     public static int[] Init()
-        => [JoeComp.ComponentID, MikeComp.ComponentID];    
+        => [Transform.ComponentID];
 
-
-    public static void Update(void* chunk)
+    public static void Update(ArchetypeIterator* iter)
     {
-        
+
+
+
+    }
+}
+
+
+[System(false, false)]
+public unsafe static class A_Processor
+{
+    public static int[] Init()
+        => [A.ComponentID];
+
+
+    public static void Update(ArchetypeIterator* iter)
+    {
+
+        //Console.WriteLine("LESSER");
+
+    }
+
+} 
+
+
+
+[System(false, true)]
+public unsafe static class AB_Processor
+{
+    public static int[] Init()
+        => [A.ComponentID, B.ComponentID];
+
+
+    public static void Update(ArchetypeIterator* iter)
+    {
+
+
+
+    }
+
+
+    public static void NarrowPhase(ArchetypeIterator* iter)
+    {
+
+
+
+    }
+
+
+    public static void BroadPhase(ArchetypeIterator* iter)
+    {
+
+
+
+    }
+
+
+    public static void PreRender(ArchetypeIterator* iter)
+    {
+
+
+
+    }
+
+
+    public static void Render(ArchetypeIterator* iter)
+    {
+
+
+
+    }
+
+
+    public static void PostRender(ArchetypeIterator* iter)
+    {
+
 
 
     }
@@ -90,105 +318,34 @@ public unsafe static class TestSystem
 
 
 [Component]
-public unsafe struct JoeComp
+public unsafe struct A
 {
+    public int i;
 
-    public static void Init(int eID, int chunkIndex, void* chunk)
-    {
-
-    }
-
-
-    public static void Fin(int eID, int chunkIndex, void* chunk)
-    {
-
-    }
+    public nuint ptr;
 
 
     public static int ComponentID;
 
 
-
-    public int third;
-
-
-    public ushort second;
+    public static int counter = 0;
 
 
-    public byte first;
-}
-
-[Component]
-public unsafe struct MikeComp
-{
-
-    public static int ComponentID;
-
-}
-
-
-/*[Level(true)]
-public unsafe static class MotherLevel
-{
-    public static int LevelID;
-
-
-    public static void Start()
+    public static void Init(int entityID, A* component)
     {
-        Console.WriteLine("HELLO");
+        counter += 100;
 
-        int first = Engine.CreateEntity();
-
-        Console.WriteLine("FIRST");
-
-        int second = Engine.CreateEntity();
-
-        Console.WriteLine("SECOND");
-
-        int third = Engine.CreateEntity();
-
-        Console.WriteLine(first + " " + second + " " + third);
+        component->i = counter;
 
 
-        Engine.DeleteEntity(third);
-
-
-        Engine.BindChild(first, second);
-
-        int* list = Engine.ShowChildren(first);
-
-        Console.WriteLine(list[0]);
-
-        for(int i = 0; i < list[0]; i++)
-            Console.WriteLine(i + ": " + list[i + 1]);
-
-        NativeMemory.Free(list);
-
-
-        Engine.UnbinChild(first, second);
-
-        list = Engine.ShowChildren(first);
-
-        Console.WriteLine(list[0]);
-
-        for(int i = 0; i < list[0]; i++)
-            Console.WriteLine(i + ": " + list[i + 1]);
-
-        NativeMemory.Free(list);
+        Console.WriteLine("A INIT " + (nuint)component);
     }
 
 
-    static int cnt = 0;
-
-    public static void Update()
+    public static void Fin(int entityID, A* component)
     {
+        Console.WriteLine("A FIN " + (nuint)component + " " + entityID + " " + component->i);
 
-
-    }
-
-
-    public static void End()
-    {
 
 
     }
@@ -196,32 +353,72 @@ public unsafe static class MotherLevel
 
 
 [Component]
-public struct Velocity
+public unsafe struct B
 {
+    public short S;
+
+    public nuint ptr;
+
+
     public static int ComponentID;
 
-    public static void Init(int eID)
+
+    public static int counter = 0;
+
+
+    public static void Init(int entityID, B* component)
     {
-        Console.WriteLine("HELLO!");
+        counter += 20;
+
+        component->S = (short)counter;
+
+        Console.WriteLine("B INIT " + (nuint)component);
+
+
+    }
+
+
+    public static void Fin(int entityID, B* component)
+    {
+        Console.WriteLine("B FIN " + (nuint)component + " " + entityID + " " + component->S);
+
+
 
     }
 }
 
 
-
-[System(SystemState.None)]
-public unsafe static class Accelerator
+[Component]
+public unsafe struct C
 {
-    public static OffsetInfo Init()
+    public byte b;
+
+    public nuint ptr;
+
+
+    public static int ComponentID;
+
+
+    public static int counter = 0;
+
+
+    public static void Init(int entityID, C* component)
     {
+        counter += 1;
+
+        component->b = (byte)counter;
+
+        Console.WriteLine("C INIT " + (nuint)component);
 
 
-        return new([Velocity.ComponentID]);
     }
 
 
-    public static void Update(int* offsets)
+    public static void Fin(int entityID, C* component)
     {
+        Console.WriteLine("C FIN " + (nuint)component + " " + entityID + " " + component->b);
+
+
 
     }
-}*/
+}

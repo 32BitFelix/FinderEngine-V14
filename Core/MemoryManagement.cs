@@ -2,7 +2,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Xml.Linq;
 using static System.Runtime.InteropServices.NativeMemory;
 
 namespace Core.MemoryManagement;
@@ -975,7 +974,7 @@ public unsafe struct SplitArray<T>
         // of the thread posing
         // a total lock to this array
 
-        public int AbsoluteLock;
+        public volatile int AbsoluteLock;
 
         // The size of a
         // chunk in elements.
@@ -994,7 +993,7 @@ public unsafe struct SplitArray<T>
         // The lock acting
         // on a chunk
 
-        public int ChunkLock;
+        public volatile int ChunkLock;
 
         // A counter for
         // seeing how many
@@ -1002,7 +1001,7 @@ public unsafe struct SplitArray<T>
         // thread has locked
         // the referenced chunk
 
-        public int SameOn;
+        public volatile int SameOn;
 
         // The reference to
         // the overseen chunk
@@ -1319,5 +1318,149 @@ public unsafe static class SplitArrayExt
         // references of the chunks
 
         AlignedFree((void*)array.Array);
+    }
+}
+
+
+
+// An exponential array, as it's name
+// implies, doubles it's size when resizing.
+// The elements are also guaranteed to stay
+// on their addresses, as there is no
+// reallocation used for the resizing of the
+// array 
+
+public struct ExponentialArray<T>
+{
+    // Holds the relevant data
+    // of the array.
+    // Length (int) | Arrays (pointer * 32)
+    public nuint Data;
+}
+
+
+// Helper methods for the exponential array
+
+public unsafe static class ExponentialArrayExt
+{
+    // Helper method for initialising the array
+
+    public static void Create<T>(this ref ExponentialArray<T> array)
+    {
+        // Allocate tha outer array
+
+        array.Data = (nuint)Alloc((nuint)(sizeof(int) + sizeof(nuint) * 32));
+
+
+        // Zero the values for the
+        // outer array
+
+        *(int*)array.Data ^= *(int*)array.Data;
+
+        for(sbyte i = 31; i > -1; i--)
+            ((nuint*)(array.Data + sizeof(int)))[i] ^= ((nuint*)(array.Data + sizeof(int)))[i];
+    }
+
+
+    // Helper method for getting the
+    // length of the array
+
+    public static int GetLength<T>(this ref ExponentialArray<T> array)
+        => *(int*)array.Data;
+
+
+    // Finalizes the given exponential array
+
+    public static void Delete<T>(this ref ExponentialArray<T> array)
+    {
+        // Get the address of the
+        // first array reference
+
+        nuint arrayRef = array.Data + sizeof(int);
+
+        // Free the resources
+        // of each referenced array
+
+        for(sbyte i = 31; i > -1; i--)
+        {
+            // SKip to the next iteration,
+            // if there is no resources to free
+
+            if(*(nuint*)arrayRef == 0)
+                continue;
+
+
+            Free((void*)arrayRef);
+
+
+            // Increment to the next
+            // array reference
+
+            arrayRef += (nuint)sizeof(nuint);
+        }
+
+
+        // Free the resources of the
+        // outer array
+
+        Free((void*)array.Data);
+    }
+
+
+    // Returns the address of the
+    // element at the specified index
+
+    public static T* GetElement<T>(this ref ExponentialArray<T> array, int index)
+        where T : unmanaged
+    {   
+        byte arrayIndex = (byte)BitOperations.Log2((uint)index);
+
+        int elementIndex = index ^ (1 << arrayIndex);
+
+        {
+            bool isNotZero = arrayIndex != 0;
+
+            elementIndex *= *(byte*)&isNotZero & 1;
+        }
+
+
+        T* arrayRef = (T*)((nuint*)(array.Data + sizeof(int)))[arrayIndex];
+
+
+        return &arrayRef[elementIndex];
+    }
+
+
+    // Returns the address of the
+    // array at the specified index (Range from 0 to 31)
+
+    public static T* GetArray<T>(this ref ExponentialArray<T> array, int arrayIndex)
+        where T : unmanaged
+    => (T*)((nuint*)(array.Data + sizeof(int)))[arrayIndex];
+
+
+    // Allocates an array at the
+    // specified index (Range from 0 to 31)
+
+    public static void AllocateArray<T>(this ref ExponentialArray<T> array, int arrayIndex)
+        where T : unmanaged
+    {
+        // Calculate the length of the
+        // array to allocate and add it
+        // to the collective length
+
+        nuint toAlloc = (nuint)1 << arrayIndex;
+
+        *(int*)array.Data += (int)toAlloc;
+
+
+        // Evaluate the memory to allocate in bytes
+
+        toAlloc *= (nuint)sizeof(T);
+
+
+        // Finally, allocate the memory
+
+        ((nuint*)(array.Data + sizeof(int)))[arrayIndex] = (nuint)Alloc(toAlloc);
     }
 }

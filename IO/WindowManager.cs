@@ -1,7 +1,10 @@
 
 using System.Runtime.InteropServices;
+using IO.Input;
+using IO.Logging;
 using OpenTK.Audio.OpenAL;
 using OpenTK.Graphics.OpenGL4;
+using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using Monitor = OpenTK.Windowing.GraphicsLibraryFramework.Monitor;
 
@@ -18,7 +21,9 @@ namespace IO;
 public unsafe static class WindowManager
 {
     // Type initialiser
+#pragma warning disable CS8618
     static WindowManager()
+#pragma warning restore
     {
         _initGL();
 
@@ -87,6 +92,7 @@ public unsafe static class WindowManager
 
             windowPtr = GLFW.CreateWindowRaw(800, 600, title, null, null);
 
+
             // Check if the making of the window failed
 
             if(windowPtr == (Window*)null)
@@ -119,19 +125,21 @@ public unsafe static class WindowManager
 
             // Set the default aspect ratio
 
-            AspectRatio = 1f / 4;
+            AspectRatio = 4f / 3;
 
 
             // Set the clear color of
             // the backbuffer
 
-            GL.ClearColor(1, 1, 1, 1);   
+            GL.ClearColor(0.5f, 0.5f, 1, 1);   
 
 
             // Set a callback for resizing
             // the window
 
-            GLFW.SetFramebufferSizeCallback(windowPtr, new GLFWCallbacks.FramebufferSizeCallback(_resize));
+            //GLFW.SetFramebufferSizeCallback(windowPtr, new GLFWCallbacks.FramebufferSizeCallback(_resize));
+
+            GLFW.SetFramebufferSizeCallback(windowPtr, Marshal.GetDelegateForFunctionPointer<GLFWCallbacks.FramebufferSizeCallback>((nint)(delegate*<Window*, int, int, void>)&_resize));
 
 
             // Define the attachments of
@@ -183,15 +191,18 @@ public unsafe static class WindowManager
 
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, MainBuffer);
 
-
             // Bind the color buffer
 
             GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, ColorBuffer, 0);
-
             
             // Bind the depth and stencil buffer
 
             GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthStencilAttachment, TextureTarget.Texture2D, DepthStencilBuffer, 0);
+
+
+            // Bind back to the normal frame buffer
+
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
         }
 
 
@@ -327,7 +338,7 @@ public unsafe static class WindowManager
 
     // The pointer reference to the window
 
-    private static Window* windowPtr;
+    public static Window* windowPtr;
 
     // The pointer reference to the monitor
 
@@ -342,17 +353,11 @@ public unsafe static class WindowManager
     public static void Start(delegate*<float, void> update, delegate*<void> end)
     {
         // Repeat this loop as long
-        // as the window is open
+        // as the window is open or
+        // there is no error to speak of
 
-        while(!GLFW.WindowShouldClose(windowPtr))
+        while(!GLFW.WindowShouldClose(windowPtr) && !Logger.HasError)
         {
-            // Prematurely end the
-            // loop, if we have an error
-
-            // if(   )
-            //     break;
-
-
             // Check for some
             // window specific
             // events
@@ -375,6 +380,10 @@ public unsafe static class WindowManager
             // and share the deltatime
 
             update((float)GLFW.GetTime());
+
+
+            KBM.Update();
+
 
             // Reset the timer
 
@@ -402,11 +411,31 @@ public unsafe static class WindowManager
             //Console.WriteLine(GL.GetError());
 
 
+            GL.Flush();
+
+
             // Swap the buffers
 
             GLFW.SwapBuffers(windowPtr);
         }
         
+
+        // Get the window out of fullscreen,
+        // before hiding it
+
+        if(previousWindowState == WindowState.Fullscreen)
+        {
+            GLFW.GetWindowSize(windowPtr, out int width, out int height);
+
+            GLFW.SetWindowMonitor(windowPtr, null, 0, 0, width, height, 0);
+        }
+
+
+        // Hides the window, so that it
+        // doesn't bother the user anymore
+
+        GLFW.HideWindow(windowPtr);
+
 
         // Call the end of the hooked
         // engine, if it is defined
@@ -426,6 +455,9 @@ public unsafe static class WindowManager
         GL.Viewport(0, 0, width, height);
 
 
+        AspectRatio = (float)width / height;
+
+
         // Set the colorbuffer size
 
         /*GL.BindTexture(TextureTarget.Texture2D, ColorBuffer);
@@ -438,8 +470,57 @@ public unsafe static class WindowManager
         GL.BindTexture(TextureTarget.Texture2D, DepthStencilBuffer);
 
         GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Depth24Stencil8, width, height, 0, PixelFormat.DepthStencil, PixelType.UnsignedInt248, 0);*/
-
-
-        Console.WriteLine("RESIZE");
     }                             
+
+
+    public static CursorModeValue CursorState
+    {
+        get => GLFW.GetInputMode(windowPtr, CursorStateAttribute.Cursor);
+
+        set => GLFW.SetInputMode(windowPtr, CursorStateAttribute.Cursor, value);
+    }
+
+
+    private static WindowState previousWindowState;
+
+    public static WindowState WindowState
+    {
+        get => previousWindowState;
+
+        set
+        {
+            if(previousWindowState == WindowState.Fullscreen)
+            {
+                GLFW.GetWindowSize(windowPtr, out int width, out int height);
+
+                GLFW.SetWindowMonitor(windowPtr, null, 0, 0, width, height, 0);
+            }
+
+            previousWindowState = value;
+
+            switch(value)
+            {
+                case WindowState.Normal:
+                    GLFW.RestoreWindow(windowPtr);
+                return;
+
+                case WindowState.Minimized:
+                    GLFW.IconifyWindow(windowPtr);
+                return;
+
+                case WindowState.Maximized:
+                    GLFW.MaximizeWindow(windowPtr);
+                return;
+
+                case WindowState.Fullscreen:
+                    VideoMode* nMode = GLFW.GetVideoMode(monitorPtr);
+                    GLFW.SetWindowMonitor(windowPtr, monitorPtr, 0, 0, nMode->Width, nMode->Height, nMode->RefreshRate);
+                return;
+            }
+        }
+    }
+
+
+    public static void CloseWindow()
+        =>GLFW.SetWindowShouldClose(windowPtr, true);
 }

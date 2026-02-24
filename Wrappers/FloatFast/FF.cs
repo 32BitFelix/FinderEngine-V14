@@ -69,8 +69,6 @@ public unsafe static class FloatFast
 
         function(2 | 4); // Currently blocking AVX and AVX512 support, because thy're not fully implemented
 
-        Console.WriteLine((nint)function);
-
 
         // Save the length of a register
         // in floats
@@ -283,30 +281,21 @@ public unsafe static class FloatFast
             copySize %= sizeof(ulong);
 
 
-            Console.WriteLine(i + " Long copies");
+            // Loop repeats until
+            // there isn't something
+            // to copy with long
+
+            while(i > 0)
+            {
+                // Decrement the counter
+
+                i--;
 
 
-            // Repeat point of the loop
+                // Copy 64 bits
 
-            repeatLong:
-
-
-            // Copy 64 bits
-
-            ((ulong*)to)[i - 1] = ((ulong*)from)[i - 1];
-
-
-            // Decrement the counter
-
-            i--;
-
-            // Repeat the loop,
-            // if the counter 
-            // is still above
-            // or the same as zero
-
-            if(i > 0)
-                goto repeatLong;
+                ((ulong*)to)[i] = ((ulong*)from)[i];
+            }
         }
 
 
@@ -325,30 +314,21 @@ public unsafe static class FloatFast
             copySize %= sizeof(uint);
 
 
-            Console.WriteLine(i + " Int copies");
+            // Loop repeats until
+            // there isn't something
+            // to copy with int
+
+            while(i > 0)
+            {
+                // Decrement the counter
+
+                i--;
 
 
-            // Repeat point of the loop
+                // Copy 64 bits
 
-            repeatLong:
-
-
-            // Copy 32 bits
-
-            ((uint*)to)[i - 1] = ((uint*)from)[i - 1];
-
-
-            // Decrement the counter
-
-            i--;
-
-            // Repeat the loop,
-            // if the counter 
-            // is still above
-            // or the same as zero
-
-            if(i > 0)
-                goto repeatLong;
+                ((uint*)to)[i] = ((uint*)from)[i];
+            }
         }
 
 
@@ -367,30 +347,21 @@ public unsafe static class FloatFast
             copySize %= sizeof(ushort);
 
 
-            Console.WriteLine(i + " Short copies");
+            // Loop repeats until
+            // there isn't something
+            // to copy with short
+
+            while(i > 0)
+            {
+                // Decrement the counter
+
+                i--;
 
 
-            // Repeat point of the loop
+                // Copy 64 bits
 
-            repeatLong:
-
-
-            // Copy 16 bits
-
-            ((ushort*)to)[i - 1] = ((ushort*)from)[i - 1];
-
-
-            // Decrement the counter
-
-            i--;
-
-            // Repeat the loop,
-            // if the counter 
-            // is still above
-            // or the same as zero
-
-            if(i > 0)
-                goto repeatLong;
+                ((ushort*)to)[i] = ((ushort*)from)[i];
+            }
         }
 
 
@@ -402,37 +373,22 @@ public unsafe static class FloatFast
 
             int i = copySize / sizeof(byte);
 
-            // Decrease the amount to
-            // copy, to what's left
-            // after the byte copy
 
-            copySize %= sizeof(byte);
+            // Loop repeats until
+            // there isn't something
+            // to copy with long
 
+            while(i > 0)
+            {
+                // Decrement the counter
 
-            Console.WriteLine(i + " Byte copies");
-
-
-            // Repeat point of the loop
-
-            repeatLong:
+                i--;
 
 
-            // Copy 8 bits
+                // Copy 64 bits
 
-            ((byte*)to)[i - 1] = ((byte*)from)[i - 1];
-
-
-            // Decrement the counter
-
-            i--;
-
-            // Repeat the loop,
-            // if the counter 
-            // is still above
-            // or the same as zero
-
-            if(i > 0)
-                goto repeatLong;
+                ((byte*)to)[i] = ((byte*)from)[i];
+            }
         }
     }
 } 
