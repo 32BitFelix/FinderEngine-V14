@@ -702,7 +702,18 @@ public unsafe static class Finder
     /// of the engine.
     /// </summary>
 
-    public static float DeltaTime;
+    public static float GlobalDeltaTime;
+
+
+    public static float DeltaTime => GlobalDeltaTime * levels[currentLevelID].TimeScale;
+        
+
+    public static float TimeScale
+    {
+        get => levels[currentLevelID].TimeScale;
+
+        set => levels[currentLevelID].TimeScale = value;
+    }
 
 
     // TODO: Improve system sceduling
@@ -723,7 +734,7 @@ public unsafe static class Finder
 
         // Set the deltatime of the engine
 
-        DeltaTime = dt;
+        GlobalDeltaTime = dt;
 
         // Add the given delta time
         // to the fixed update counter

@@ -1,5 +1,6 @@
 #version 330 core
 
+#extension GL_ARB_bindless_texture : enable
 #extension GL_EXT_nonuniform_qualifier : enable
 
 // The final result of the

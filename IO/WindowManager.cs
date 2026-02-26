@@ -1,4 +1,5 @@
 
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using IO.Input;
 using IO.Logging;
@@ -134,6 +135,9 @@ public unsafe static class WindowManager
             GL.ClearColor(0.5f, 0.5f, 1, 1);   
 
 
+            GLFW.SwapInterval(0);
+
+
             // Set a callback for resizing
             // the window
 
@@ -149,7 +153,7 @@ public unsafe static class WindowManager
             // Retrieve the window's
             // framebuffer's size
 
-            int xDim = 0;
+            /*int xDim = 0;
 
             int yDim = 0;
 
@@ -202,7 +206,7 @@ public unsafe static class WindowManager
 
             // Bind back to the normal frame buffer
 
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);*/
         }
 
 
@@ -345,6 +349,13 @@ public unsafe static class WindowManager
     private static Monitor* monitorPtr;
 
 
+    private static long previousTime;
+
+
+    private static float cnt;
+
+    private const float target = 10.0f;
+
 
     // Kickstarts a loop, that repeats,
     // as long as the window is up and
@@ -352,6 +363,9 @@ public unsafe static class WindowManager
 
     public static void Start(delegate*<float, void> update, delegate*<void> end)
     {
+        previousTime = GLFW.GetTimerValue();
+
+
         // Repeat this loop as long
         // as the window is open or
         // there is no error to speak of
@@ -367,19 +381,45 @@ public unsafe static class WindowManager
 
             // Bind to the buffer to render to
 
-            GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, 0);
+            //GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, 0);
 
 
             // Clear the backbuffer
 
-            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+            //GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
 
             // Call the update
             // of the hooked engine
             // and share the deltatime
 
-            update((float)GLFW.GetTime());
+            //update((float)GLFW.GetTime());
+
+            long currentTime = GLFW.GetTimerValue();
+
+            float delta = currentTime - previousTime;
+
+            delta /= GLFW.GetTimerFrequency();
+
+            update(delta);
+
+
+            if(cnt < target)
+            {
+                cnt += delta;
+
+                Console.WriteLine(cnt + " COUNTING");
+            }
+
+
+            if(cnt >= target)
+                Console.WriteLine("COUNTED");
+
+
+            //Console.WriteLine(currentTime + " " + delta);
+
+
+            previousTime = currentTime;
 
 
             KBM.Update();
@@ -387,7 +427,7 @@ public unsafe static class WindowManager
 
             // Reset the timer
 
-            GLFW.SetTime(.0d);
+            //GLFW.SetTime(0);
 
 
             // Copy the buffer to render to
@@ -409,9 +449,6 @@ public unsafe static class WindowManager
             GL.BlitFramebuffer(xDim, yDim, 0, 0, xDim, yDim, 0, 0, ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear);*/
 
             //Console.WriteLine(GL.GetError());
-
-
-            GL.Flush();
 
 
             // Swap the buffers
@@ -442,6 +479,11 @@ public unsafe static class WindowManager
 
         if(end != null)
             end();
+
+
+        GLFW.DestroyWindow(windowPtr);
+
+        GLFW.Terminate();
     }   
 
 

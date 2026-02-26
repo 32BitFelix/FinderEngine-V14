@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\seyan\\Desktop\\FinderEngine-v14\\FinderEngine14.csproj": {}
+    "D:\\FinderEngine-V14\\FinderEngine14.csproj": {}
   },
   "projects": {
-    "C:\\Users\\seyan\\Desktop\\FinderEngine-v14\\FinderEngine14.csproj": {
+    "D:\\FinderEngine-V14\\FinderEngine14.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\seyan\\Desktop\\FinderEngine-v14\\FinderEngine14.csproj",
+        "projectUniqueName": "D:\\FinderEngine-V14\\FinderEngine14.csproj",
         "projectName": "FinderEngine14",
-        "projectPath": "C:\\Users\\seyan\\Desktop\\FinderEngine-v14\\FinderEngine14.csproj",
+        "projectPath": "D:\\FinderEngine-V14\\FinderEngine14.csproj",
         "packagesPath": "C:\\Users\\seyan\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\seyan\\Desktop\\FinderEngine-v14\\obj\\",
+        "outputPath": "D:\\FinderEngine-V14\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\seyan\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -72,7 +72,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.416/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.418/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

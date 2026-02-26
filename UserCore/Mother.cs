@@ -44,7 +44,7 @@ public unsafe static class Main
 
             tran->Scale = (1, 1, 1, 1);
 
-            tran->Rotation = (0, 0, 0, 0);
+            tran->Rotation = (0, 0, 45, 0);
 
             tran->Translation = (0, 0, 0, 0);
 
@@ -143,15 +143,19 @@ public unsafe static class Main
 
             cam->IsOrthographic = true;
 
-            cam->ProjectionSize = 30;
+            cam->ProjectionSize = 20;
         }
 
 
-        WindowManager.WindowState = OpenTK.Windowing.Common.WindowState.Fullscreen;
+        /*WindowManager.WindowState = OpenTK.Windowing.Common.WindowState.Fullscreen;
 
-        WindowManager.CursorState = CursorModeValue.CursorDisabled;
+        WindowManager.CursorState = CursorModeValue.CursorDisabled;*/
     }
 
+
+    public static float cnt;
+
+    const float target = 1.0f;
 
     public static void Update()
     {  
@@ -161,8 +165,22 @@ public unsafe static class Main
 
         Transform* camTran = (Transform*)Finder.GetComponent(pCamera, Transform.ComponentID);
 
+        camTran->Translation.X += Finder.DeltaTime * 5;
 
-        bool up = KBM.IsHeld((int)Keys.W);
+
+        /*if(cnt < target)
+        {
+            cnt += Finder.GlobalDeltaTime;
+
+            Console.WriteLine(cnt + "CurCounter");
+        }
+
+        
+        if(cnt >= target)
+            Console.WriteLine("COUNTED");*/
+
+
+        /*bool up = KBM.IsHeld((int)Keys.W);
 
         bool down = KBM.IsHeld((int)Keys.S);
 
@@ -177,13 +195,16 @@ public unsafe static class Main
         float delta = speed * Finder.DeltaTime;
 
 
+        Console.WriteLine(Finder.DeltaTime);
+
+
         camTran->Translation.Y += (*(byte*)&up & 1) * delta;
 
         camTran->Translation.Y -= (*(byte*)&down & 1) * delta;
 
         camTran->Translation.X -= (*(byte*)&left & 1) * delta;
 
-        camTran->Translation.X += (*(byte*)&right & 1) * delta;
+        camTran->Translation.X += (*(byte*)&right & 1) * delta;*/
     }
 
 

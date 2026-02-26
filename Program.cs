@@ -14,9 +14,20 @@ public unsafe static class Program
 {
     public static void Main(string[] args)
     {
-        Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.RealTime;
+        try
+        {
 
-        WindowManager.Start(&Finder.Pulse, &Finder.End);        
+            Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.RealTime;
+
+            WindowManager.Start(&Finder.Pulse, &Finder.End);   
+
+        }
+        catch(Exception e)
+        {
+            Console.WriteLine(e.Message);
+
+            Console.WriteLine(e.StackTrace);
+        }
     }
 
 
