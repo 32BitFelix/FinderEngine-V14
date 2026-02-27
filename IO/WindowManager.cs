@@ -349,23 +349,12 @@ public unsafe static class WindowManager
     private static Monitor* monitorPtr;
 
 
-    private static long previousTime;
-
-
-    private static float cnt;
-
-    private const float target = 10.0f;
-
-
     // Kickstarts a loop, that repeats,
     // as long as the window is up and
     // calls the given update method, too   
 
     public static void Start(delegate*<float, void> update, delegate*<void> end)
     {
-        previousTime = GLFW.GetTimerValue();
-
-
         // Repeat this loop as long
         // as the window is open or
         // there is no error to speak of
@@ -386,7 +375,7 @@ public unsafe static class WindowManager
 
             // Clear the backbuffer
 
-            //GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
 
             // Call the update
@@ -395,31 +384,11 @@ public unsafe static class WindowManager
 
             //update((float)GLFW.GetTime());
 
-            long currentTime = GLFW.GetTimerValue();
+            float delta = (float)GLFW.GetTime();
 
-            float delta = currentTime - previousTime;
-
-            delta /= GLFW.GetTimerFrequency();
+            GLFW.SetTime(0);
 
             update(delta);
-
-
-            if(cnt < target)
-            {
-                cnt += delta;
-
-                Console.WriteLine(cnt + " COUNTING");
-            }
-
-
-            if(cnt >= target)
-                Console.WriteLine("COUNTED");
-
-
-            //Console.WriteLine(currentTime + " " + delta);
-
-
-            previousTime = currentTime;
 
 
             KBM.Update();

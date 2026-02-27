@@ -22,7 +22,7 @@ public unsafe static class JobCenter
     {
         // Initialise the threads array
 
-        threads = new Thread[Environment.ProcessorCount - 1];
+        threads = new Thread[Environment.ProcessorCount];
 
 
     }
@@ -33,13 +33,6 @@ public unsafe static class JobCenter
 
     public static void RunJob(Job job)
     {
-        // A constant representing the
-        // state a thread should have,
-        // in order to take up a new job
-
-        const ThreadState desiredState = ThreadState.Stopped | ThreadState.Unstarted | ThreadState.Aborted; 
-
-
         // Try to find a free job
 
         for(int i = 0; i < threads.Length; i++)
@@ -47,7 +40,7 @@ public unsafe static class JobCenter
             // Run the job on the current thread,
             // if it isn't running anything
 
-            if(threads[i] == null || ((threads[i].ThreadState & desiredState) != ThreadState.Running))
+            if(threads[i] == null || ((threads[i].ThreadState & ThreadState.Running) != ThreadState.Running))
             {                
                 threads[i] = new Thread(() => job.Method(job.Overload));
 
@@ -70,13 +63,6 @@ public unsafe static class JobCenter
 
     public static bool TryRunJob(Job job)
     {
-        // A constant representing the
-        // state a thread should have,
-        // in order to take up a new job
-
-        const ThreadState desiredState = ThreadState.Stopped | ThreadState.Unstarted | ThreadState.Aborted; 
-
-
         // Try to find a free job
 
         for(int i = 0; i < threads.Length; i++)
@@ -85,7 +71,7 @@ public unsafe static class JobCenter
             // if it isn't running anything
 
             if(threads[i] != null)
-                if((threads[i].ThreadState & desiredState) == ThreadState.Running)
+                if((threads[i].ThreadState & ThreadState.Running) == ThreadState.Running)
                     continue;
             
 
@@ -105,6 +91,23 @@ public unsafe static class JobCenter
         // A free thread hasn't been found
 
         return false;
+    }
+
+
+    // Counts the amount of threads,
+    // that are free
+
+    public static int FreeThreadCount()
+    {
+        int cnt = 0;
+
+        for(int i = 0; i < threads.Length; i++)
+        {
+            if(threads[i] == null || (threads[i].ThreadState & ThreadState.Running) != ThreadState.Running)
+                cnt++; 
+        }
+
+        return cnt;
     }
 }
 
