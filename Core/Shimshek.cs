@@ -1,6 +1,7 @@
 
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Core.Algorithms;
 using Core.LECSSimple;
 using Core.MemoryManagement;
 using IO;
@@ -18,7 +19,7 @@ public static unsafe class SpriteRenderSystem
 {
     static SpriteRenderSystem()
     {
-        // Define the element buffer object
+        /*// Define the element buffer object
 
         {
             byte[] indices =
@@ -83,13 +84,53 @@ public static unsafe class SpriteRenderSystem
                 GL.VertexAttribDivisor(2 + i, 1);
 
                 GL.EnableVertexAttribArray(2 + i);
-            }
+            }*/
 
 
         // Define the program for the
         // sprite renderer
 
         SpriteProgram.Create("./Resources/Shaders/Normal.vert", "./Resources/Shaders/Sprite.frag");
+
+
+        /*// Create the texture buffer, that'll
+        // hold the bindless texture references
+
+        bindlessTexRefs.Create(SizedInternalFormat.R32i, null, 0);
+
+
+        // Create the texture buffer, that'll
+        // hold the color modifiers
+
+        colorMods.Create(SizedInternalFormat.R32i, null, 0);
+
+
+        // Create the texture buffer, that'll
+        // hold the model matrices
+
+        modelMatrices.Create(SizedInternalFormat.R32f, null, 0);*/
+
+
+        // Create the element buffer
+
+        byte[] indices =
+        {
+            0, 1, 2,
+            0, 2, 3
+        };
+
+        EBO = GL.GenBuffer();
+
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, EBO);
+
+        fixed(byte* ptr = indices)
+            GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length, (nint)ptr, BufferUsageHint.DynamicDraw);
+
+        
+        // Create the array, that'll
+        // hold the entity-points
+
+        eP = CompactArray.Create<EntityPoint>(1);
     }
 
 
@@ -103,7 +144,7 @@ public static unsafe class SpriteRenderSystem
     }
 
 
-    const int bindlessTexSize = sizeof(long);
+    /*const int bindlessTexSize = sizeof(long);
 
     const int colorModSize = sizeof(byte) * 4;
 
@@ -121,15 +162,73 @@ public static unsafe class SpriteRenderSystem
 
     public static int VAO;
 
-    public static int EBO;
+    public static int EBO;*/
 
 
     public static ProgramObj SpriteProgram;
 
 
+    private static TextureBufferObj bindlessTexRefs;
+
+    private static TextureBufferObj colorMods;
+
+    private static TextureBufferObj modelMatrices;
+
+
+    private static int EBO;
+
+
+
+    private static EntityPoint* eP;
+
+    private static int validSprites;
+
+
     public static void Render(ArchetypeIterator* iter)    
     {
         for(int i = 0; i < iter->Length(); i++)
+        {
+            // Skip to the next iteration,
+            // if the current entity is invalid
+
+            if(iter->GetEntityID(i) < 2)
+                continue;
+
+
+            // Increment the counter of valid
+            // sprites and resize the entity-point
+            // array, if it doesn't have space
+            // to fit the new sprite
+
+            validSprites++;
+            
+            if(CompactArray.Length(eP) < validSprites)
+                fixed(EntityPoint** ptr = &eP)
+                    CompactArray.Resize(ptr, CompactArray.Length(eP) * 2);
+
+
+            // Save the entity ID of the new sprite
+
+            eP[validSprites - 1].Entity = iter->GetEntityID(i);
+        }
+
+
+        // Add the sprite dispatch to the
+        // camera system's dispatch list,
+        // if this is the last iteration,
+        // or if there even are sprites
+        // to render
+
+        if(!iter->IsLast || (validSprites == 0))
+            return;
+
+
+        CameraSystem.AddDispatch(&spriteDispatch);
+
+        CameraSystem.AddPostDispatch(&spritePostDispatch);
+
+
+        /*for(int i = 0; i < iter->Length(); i++)
         {
             if(iter->GetEntityID(i) < 2)
                 continue;
@@ -183,13 +282,13 @@ public static unsafe class SpriteRenderSystem
         if(!iter->IsLast)
             return;
 
-        CameraSystem.AddDispatch(&spriteDispatch);
+        CameraSystem.AddDispatch(&spriteDispatch);*/
     }
 
 
     private static void spriteDispatch(int cameraID)
     {
-        Transform* camTran = (Transform*)Finder.GetComponent(cameraID, Transform.ComponentID);
+        /*Transform* camTran = (Transform*)Finder.GetComponent(cameraID, Transform.ComponentID);
 
         Camera* cam = (Camera*)Finder.GetComponent(cameraID, Camera.ComponentID);
 
@@ -207,7 +306,75 @@ public static unsafe class SpriteRenderSystem
 
         GL.DrawElementsInstanced(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedByte, 0, spriteAmount);
 
-        spriteAmount ^= spriteAmount;
+        spriteAmount ^= spriteAmount;*/
+
+
+        // Get the translation of the current camera
+
+        Transform* camTran = (Transform*)Finder.GetComponent(cameraID, Transform.ComponentID);
+
+        Camera* cam = (Camera*)Finder.GetComponent(cameraID, Camera.ComponentID);
+
+        Vector4 camTranslation = camTran->GetGlobalTranslation(cameraID);
+
+
+        // Set the uniforms related to the camera
+
+        SpriteProgram.SetUniformMatrix4("view", camTran->GetViewMatrix(cameraID));
+
+        SpriteProgram.SetUniformMatrix4("projection", cam->GetProjection());
+
+
+        // Saturate the entity-point array with the most
+        // necessary information
+
+        for(int i = validSprites - 1; i > -1; i--)
+        {
+            // Get the global translation
+            // of the current sprite
+
+            Transform* tran = (Transform*)Finder.GetComponent(eP[i].Entity, Transform.ComponentID);
+
+            Vector4 spriteTranslation = tran->GetGlobalTranslation(eP[i].Entity);
+
+
+            // Get the difference between the
+            // sprite and the camera and save
+            // the length to the entity-point
+
+            Vector4 diff = spriteTranslation - camTranslation;
+
+            eP[i].Point = diff.Length;
+        }
+
+
+        Sorting.RadixSort(eP, validSprites);
+
+    
+        /*for(int i = 0; i < validSprites; i++)
+            Console.WriteLine(eP[i].Entity + " " + eP[i].Point);
+
+        Console.WriteLine("----- " + validSprites);*/
+
+
+        GL.BindVertexArray(0);
+
+        GL.BindBuffer(BufferTarget.ElementArrayBuffer, EBO);
+
+        SpriteProgram.Use();
+
+        GL.DrawElementsInstanced(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedByte, 0, validSprites << 1);       
+
+
+        Console.WriteLine(GL.GetError()); 
+    }
+
+
+    private static void spritePostDispatch(int cameraID)
+    {
+        // Clear the valid sprite counter
+
+        validSprites ^= validSprites;
     }
 }
 
@@ -223,7 +390,7 @@ public static unsafe class CameraSystem
     {
         dispatches = CompactArray.Create<nuint>(0);
 
-
+        postDispatches = CompactArray.Create<nuint>(0);
     }
 
 
@@ -285,6 +452,10 @@ public static unsafe class CameraSystem
         }
 
 
+        if(!iter->IsLast)
+            return;
+
+
         // Clear the dispatches
 
         for(int d = CompactArray.Length(dispatches) - 1; d > -1; d--)
@@ -304,17 +475,61 @@ public static unsafe class CameraSystem
 
     public static void AddPostDispatch(delegate*<int, void> dispatch)
     {
+        // Try to find a free index to
+        // save the dispatch at
 
+        for(int i = CompactArray.Length(postDispatches) - 1; i > -1; i--)
+        {
+            if(postDispatches[i] != 0)
+                continue;
 
+            postDispatches[i] = (nuint)dispatch;
 
+            return;
+        }
+
+        // Allocate a new space to
+        // save the dispatch at
+
+        fixed(nuint** ptr = &postDispatches)
+            CompactArray.Resize(ptr, CompactArray.Length(postDispatches) + 1);
+
+        postDispatches[CompactArray.Length(postDispatches) - 1] = (nuint)dispatch;
     }
 
 
     public static void PostRender(ArchetypeIterator* iter)
     {
+        // Iterate through each valid camera
+
+        for(int i = 0; i < iter->Length(); i++)
+        {
+
+            // Iterate through each dispatch
+
+            for(int d = CompactArray.Length(postDispatches) - 1; d > -1; d--)
+            {
+                if(postDispatches[d] == 0)
+                    continue;
+
+                ((delegate*<int, void>)postDispatches[d])(iter->GetEntityID(i));
+            }
+        }
 
 
+        if(!iter->IsLast)
+            return;
 
+
+        // Clear the dispatches
+
+        for(int d = CompactArray.Length(postDispatches) - 1; d > -1; d--)
+        {
+            if(postDispatches[d] == 0)
+                continue;
+
+            postDispatches[d] ^= postDispatches[d];
+        }
     }
 }
 
@@ -390,6 +605,103 @@ public unsafe static class CameraExt
 }
 
 
+// A wrapper for OpenGL's
+// texture buffers
+
+public struct TextureBufferObj
+{   
+    // The reference to the
+    // opengl texture buffer
+
+    public int TBO;
+
+    // The reference to the
+    // buffer object containing
+    // the actual data
+
+    public int BO;
+}
+
+// Extension methods for
+// texture buffer object
+
+public unsafe static class TextureBufferObjExt
+{
+    // Hlper method for generating
+    // the texture buffer
+
+    public static void Create(this ref TextureBufferObj tbObj, SizedInternalFormat format, byte* data, int length)
+    {
+        // Generate the buffer, that'll
+        // hold the data
+
+        tbObj.BO = GL.GenBuffer();
+
+        GL.BindBuffer(BufferTarget.TextureBuffer, tbObj.BO);
+
+        {
+            // Evaluate the size of the given type
+
+            int typeSize = 0;
+
+            switch(format)
+            {
+                case SizedInternalFormat.R32i:
+                    typeSize = sizeof(int);
+                break;
+
+
+                case SizedInternalFormat.R32f:
+                    typeSize = sizeof(float);
+                break;
+            }
+
+
+            // Save the given data to the buffer
+
+            GL.BufferData(BufferTarget.TextureBuffer, typeSize * length, (nint)data, BufferUsageHint.DynamicDraw);
+        }
+
+
+        // Generate the texture, that'll
+        // hold the reference to the buffer
+
+        tbObj.TBO = GL.GenTexture();        
+
+        GL.BindTexture(TextureTarget.TextureBuffer, tbObj.TBO);
+
+        GL.TexBuffer(TextureBufferTarget.TextureBuffer, format, tbObj.BO);
+    }
+
+
+    // Helper method for deleting the
+    // texture buffer
+
+    public static void Delete(this TextureBufferObj tbObj)
+    {
+        GL.DeleteBuffer(tbObj.BO);
+
+        GL.DeleteTexture(tbObj.TBO);
+    }
+
+
+    // Helper method for binding
+    // the texture buffer to the
+    // given texture unit
+
+    public static void Use(this TextureBufferObj tbObj, TextureUnit unit = TextureUnit.Texture0)
+    {
+        GL.ActiveTexture(unit);
+
+        Console.WriteLine(GL.GetError());
+
+        GL.BindTexture(TextureTarget.TextureBuffer, tbObj.TBO);
+
+        Console.WriteLine(GL.GetError());
+    }
+}
+
+
 // A wrapper for OpenGL's texture.
 // Includes both the texture buffer
 // reference along with the bindless
@@ -397,10 +709,10 @@ public unsafe static class CameraExt
 
 public struct TextureObj
 {
-    // Reference to the buffer
-    // holding the texture's information
+    // Reference to the
+    // texture data
 
-    public int TBO;
+    public int TO;
 
 
     // The bindless texture reference
@@ -419,12 +731,12 @@ public unsafe static class TextureObjExt
 
     public static void Create(this ref TextureObj tObj, byte* Data, int Width, int Height, bool isGreyScale)
     {
-        // Create the texture buffer
+        // Create the texture
         // and bind to it
 
-        tObj.TBO = GL.GenTexture();
+        tObj.TO = GL.GenTexture();
 
-        GL.BindTexture(TextureTarget.Texture2D, tObj.TBO);
+        GL.BindTexture(TextureTarget.Texture2D, tObj.TO);
 
 
         // Upload the texture data
@@ -447,7 +759,7 @@ public unsafe static class TextureObjExt
         // Generate the bindless reference
         // to the texture and make it resident
 
-        tObj.BTO = GL.Arb.GetTextureHandle(tObj.TBO);
+        tObj.BTO = GL.Arb.GetTextureHandle(tObj.TO);
 
         GL.Arb.MakeTextureHandleResident(tObj.BTO);
     }
@@ -458,9 +770,9 @@ public unsafe static class TextureObjExt
         // Create the texture buffer
         // and bind to it
 
-        tObj.TBO = GL.GenTexture();
+        tObj.TO = GL.GenTexture();
 
-        GL.BindTexture(TextureTarget.Texture2D, tObj.TBO);
+        GL.BindTexture(TextureTarget.Texture2D, tObj.TO);
 
 
         // Load the image
@@ -490,7 +802,7 @@ public unsafe static class TextureObjExt
         // Generate the bindless reference
         // to the texture and make it resident
 
-        tObj.BTO = GL.Arb.GetTextureHandle(tObj.TBO);
+        tObj.BTO = GL.Arb.GetTextureHandle(tObj.TO);
 
         GL.Arb.MakeTextureHandleResident(tObj.BTO);
     }
@@ -507,7 +819,7 @@ public unsafe static class TextureObjExt
 
         // Delete the texture buffer
 
-        GL.DeleteTexture(tObj.TBO);
+        GL.DeleteTexture(tObj.TO);
     }
 
 
@@ -519,7 +831,7 @@ public unsafe static class TextureObjExt
     {
         GL.ActiveTexture(unit);
 
-        GL.BindTexture(TextureTarget.Texture2D, tObj.TBO);
+        GL.BindTexture(TextureTarget.Texture2D, tObj.TO);
     }
 }
 

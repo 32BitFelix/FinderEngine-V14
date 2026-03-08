@@ -1,7 +1,10 @@
 
 
 
+using System.Net.Security;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics.X86;
 using Core.MemoryManagement;
 
 namespace Core.Algorithms;
@@ -20,149 +23,128 @@ public struct EntityPoint
 
 public unsafe static class Sorting
 {
-    // Sorts the given compact array
-    // with the radix sorting algorithm
+    // A slightly less space efficient
+    // approach to radix sort, inspired
+    // by Michael Herf's approach
 
-    public static void RadixSortST(int* array)
+    public static void RadixSort(EntityPoint* array, int length)
     {
-
         // This and the given array will
         // be used interchangeably for storing
         // the results of each radix
 
-        int* swapBuffer = (int*)NativeMemory.Alloc((nuint)(sizeof(int) * CompactArray.Length(array)));
+        EntityPoint* swapBuffer = (EntityPoint*)NativeMemory.Alloc((nuint)(sizeof(EntityPoint) * length));
 
 
-        // Initialise the counter for keeping
-        // track of multiple of a certain byte value
-        
-        int* counter = stackalloc int[256];
+        int* histogram0 = stackalloc int[256];
 
-        // Initialise the table for keeping
-        // track of at what index the values
-        // will be set for each iteration
+        histogram0[0] = -1;
 
-        int* offsetTable = stackalloc int[256];
+        int* histogram1 = stackalloc int[256];
+
+        histogram1[0] = -1;
+
+        int* histogram2 = stackalloc int[256];
+
+        histogram2[0] = -1;
+
+        int* histogram3 = stackalloc int[256];
+
+        histogram3[128] = -1;
 
 
-        // The loop to iterate through each pass
+        Sse.PrefetchNonTemporal(array);
 
-        for(byte p = 0; p < 3; p++)
+
+        // Set the records of the histograms
+
+        for(int i = length - 1; i > -1; i--)
         {
-            // Reset the counter
-
-            for(byte i = 0; i < 256 / 2; i++)
-                ((long*)counter)[i] ^= ((long*)counter)[i];
+            int val = *(int*)&array[i].Point;
 
 
-            // Reset the offset table
+            histogram0[(byte)val]++;
 
-            offsetTable[0] ^= offsetTable[0];
-
-
-            // Evaluate the source and target array
-
-            int* source;
-
-            int* target;
-
-            {
-                bool swapIndicator = (p & 1) == 0;
-
-                source = swapIndicator ? array : swapBuffer;
-
-                target = swapIndicator ? swapBuffer : array;
-            }
+            val >>= 8;
 
 
-            // Count the instances
+            histogram1[(byte)val]++;
 
-            for(int i = 0; i < CompactArray.Length(array); i++)
-            {
-                byte val = (byte)(source[i] >> (8 * p));                
-
-                counter[val]++;
-            }
+            val >>= 8;
 
 
-            // Build the offset table
+            histogram2[(byte)val]++;
 
-            for(int i = 1; i < 256; i++)
-                offsetTable[i] = offsetTable[i - 1] + counter[i - 1];
+            val >>= 8;
 
-            
-            // Save the values at their
-            // orderly index
 
-            for(int i = 0; i < CompactArray.Length(array); i++)
-            {
-                byte val = (byte)(source[i] >> (8 * p));                
-
-                target[offsetTable[val]++] = source[i];
-            }
+            histogram3[(byte)val]++;
         }
 
 
-        // The final pass
+        // Sum the records of the histograms
+        // with their previous ones
 
-
-        // Reset the counter
-
-        for(byte i = 0; i < 256 / 2; i++)
-            ((long*)counter)[i] ^= ((long*)counter)[i];
-
-
-        // Count the instances
-
-        for(int i = 0; i < CompactArray.Length(array); i++)
+        for(int i = 1; i < 256; i++)
         {
-            byte val = (byte)(swapBuffer[i] >> 24);                
+            histogram0[i] += histogram0[i - 1];
 
-            counter[val]++;
+            histogram1[i] += histogram1[i - 1];
+
+            histogram2[i] += histogram2[i - 1];
+
+            histogram3[(byte)(i + 128)] += histogram3[(byte)((byte)(i + 128) - 1)];
         }
 
 
-        // Count the amount of negative values
+        Sse.PrefetchNonTemporal(array);
 
-        int numNeg = 0;
-
-        for(int i = 128; i < 256; i++)
-            numNeg += counter[i];
-
-        
-        // Reset the offset table
-        // for the positive portion
-
-        offsetTable[0] = numNeg;
-
-        // Build the offset table
-        // for the positive values
-
-        for(int i = 1; i < 128; i++)
-            offsetTable[i] = offsetTable[i - 1] + counter[i - 1];    
+        Sse.PrefetchNonTemporal(swapBuffer);
 
 
-        // Reset the offset table
-        // for the negative portion
+        // The first pass
 
-        offsetTable[128] ^= offsetTable[128];
+        Sse.Prefetch0(histogram0);
 
-        // Build the offset table
-        // for the positive values
-
-        for(int i = 129; i < 256; i++)
-            offsetTable[i] = offsetTable[i - 1] + counter[i - 1]; 
-
-
-        // Save the values at their
-        // orderly index
-
-        for(int i = 0; i < CompactArray.Length(array); i++)
+        for(int i = length - 1; i > -1; i--)
         {
-            byte val = (byte)(swapBuffer[i] >> 24);                
+            byte val = (byte)*(int*)&array[i].Point;
 
-            array[offsetTable[val]++] = swapBuffer[i];
-        }   
+            swapBuffer[histogram0[val]--] = array[i];
+        }
+
+        // The second pass
+
+        Sse.Prefetch0(histogram1);
+
+        for(int i = length - 1; i > -1; i--)
+        {
+            byte val = (byte)(*(int*)&swapBuffer[i].Point >> 8);
+
+            array[histogram1[val]--] = swapBuffer[i];
+        }
+
+        // The third pass
+
+        Sse.Prefetch0(histogram2);
+
+        for(int i = length - 1; i > -1; i--)
+        {
+            byte val = (byte)(*(int*)&array[i].Point >> 16);
+
+            swapBuffer[histogram2[val]--] = array[i];
+        }
+
+        // The fourth pass
+
+        Sse.Prefetch0(histogram3);
+
+        for(int i = length - 1; i > -1; i--)
+        {
+            byte val = (byte)(*(int*)&swapBuffer[i].Point >> 24);
+
+            array[histogram3[val]--] = swapBuffer[i];
+        }
 
 
         // Free the swapbuffer
@@ -171,12 +153,145 @@ public unsafe static class Sorting
     }
 
 
-    // Sorts the given compact array
-    // with the radix sorting algorithm
+    // A slightly less space efficient
+    // approach to radix sort, inspired
+    // by Michael Herf's approach
+
+    public static void RadixSort(int* array)
+    {
+        // This and the given array will
+        // be used interchangeably for storing
+        // the results of each radix
+
+        int* swapBuffer = (int*)NativeMemory.Alloc((nuint)(sizeof(int) * CompactArray.Length(array)));
+
+
+        int* histogram0 = stackalloc int[256];
+
+        histogram0[0] = -1;
+
+        int* histogram1 = stackalloc int[256];
+
+        histogram1[0] = -1;
+
+        int* histogram2 = stackalloc int[256];
+
+        histogram2[0] = -1;
+
+        int* histogram3 = stackalloc int[256];
+
+        histogram3[128] = -1;
+
+
+        Sse.PrefetchNonTemporal(array);
+
+
+        // Set the records of the histograms
+
+        for(int i = CompactArray.Length(array) - 1; i > -1; i--)
+        {
+            int val = array[i];
+
+
+            histogram0[(byte)val]++;
+
+            val >>= 8;
+
+
+            histogram1[(byte)val]++;
+
+            val >>= 8;
+
+
+            histogram2[(byte)val]++;
+
+            val >>= 8;
+
+
+            histogram3[(byte)val]++;
+        }
+
+
+        // Sum the records of the histograms
+        // with their previous ones
+
+        for(int i = 1; i < 256; i++)
+        {
+            histogram0[i] += histogram0[i - 1];
+
+            histogram1[i] += histogram1[i - 1];
+
+            histogram2[i] += histogram2[i - 1];
+
+            histogram3[(byte)(i + 128)] += histogram3[(byte)((byte)(i + 128) - 1)];
+        }
+
+
+        Sse.PrefetchNonTemporal(array);
+
+        Sse.PrefetchNonTemporal(swapBuffer);
+
+
+        // The first pass
+
+        Sse.Prefetch0(histogram0);
+
+        for(int i = CompactArray.Length(array) - 1; i > -1; i--)
+        {
+            byte val = (byte)array[i];
+
+            swapBuffer[histogram0[val]--] = array[i];
+        }
+
+        // The second pass
+
+        Sse.Prefetch0(histogram1);
+
+        for(int i = CompactArray.Length(array) - 1; i > -1; i--)
+        {
+            byte val = (byte)(swapBuffer[i] >> 8);
+
+            array[histogram1[val]--] = swapBuffer[i];
+        }
+
+        // The third pass
+
+        Sse.Prefetch0(histogram2);
+
+        for(int i = CompactArray.Length(array) - 1; i > -1; i--)
+        {
+            byte val = (byte)(array[i] >> 16);
+
+            swapBuffer[histogram2[val]--] = array[i];
+        }
+
+        // The fourth pass
+
+        Sse.Prefetch0(histogram3);
+
+        for(int i = CompactArray.Length(array) - 1; i > -1; i--)
+        {
+            byte val = (byte)(swapBuffer[i] >> 24);
+
+            array[histogram3[val]--] = swapBuffer[i];
+        }
+
+
+        // Free the swapbuffer
+
+        NativeMemory.Free(swapBuffer);
+    }
+
+
+    // A slightly less space efficient
+    // approach to radix sort, inspired
+    // by Michael Herf's approach.
+    // This version is multithreaded
+    // AND HIGHLY EXPERIMENTAL. It's
+    // way slower than the single threaded implementation
 
     public static void RadixSortMT(int* array)
     {
-
         // This and the given array will
         // be used interchangeably for storing
         // the results of each radix
@@ -184,201 +299,232 @@ public unsafe static class Sorting
         int* swapBuffer = (int*)NativeMemory.Alloc((nuint)(sizeof(int) * CompactArray.Length(array)));
 
 
-        // Initialise the counter for keeping
-        // track of multiple of a certain byte value
-        
-        int* counter = stackalloc int[256];
+        int* histogram0 = stackalloc int[256];
 
-        // Initialise the table for keeping
-        // track of at what index the values
-        // will be set for each iteration
+        histogram0[0] = -1;
 
-        int* offsetTable = stackalloc int[256];
+        int* histogram1 = stackalloc int[256];
 
+        histogram1[0] = -1;
 
-        countInstanceOverload* cIOverloads;
+        int* histogram2 = stackalloc int[256];
 
-        orderOverload* oOverload;
+        histogram2[0] = -1;
 
-        int freeThreads = JobCenter.FreeThreadCount();
+        int* histogram3 = stackalloc int[256];
+
+        histogram3[128] = -1;
 
 
+        // Evaluate the amount of currently
+        // free threads and the amount of
+        // elements each can process
+
+        int threadCount = JobCenter.CountFreeThreads();
+
+        int elementsPerThread = CompactArray.Length(array) / threadCount;
 
 
-        // The loop to iterate through each pass
+        // A counter for keeping track
+        // of the threads completing their jobs
 
-        for(byte p = 0; p < 3; p++)
+        int completionCounter = 0;
+
+
+        // Split the elements through the threads
+
+        setHistogramOverload* sHO = (setHistogramOverload*)NativeMemory.Alloc((nuint)(sizeof(setHistogramOverload) * threadCount));
+
+        for(int i = threadCount - 1; i > -1; i--)
         {
-            // Reset the counter
+            sHO[i].Array = &array[i * elementsPerThread];
 
-            for(byte i = 0; i < 256 / 2; i++)
-                ((long*)counter)[i] ^= ((long*)counter)[i];
+            sHO[i].Length = elementsPerThread;
+
+            sHO[i].Histogram0 = histogram0;
+
+            sHO[i].Histogram1 = histogram1;
+
+            sHO[i].Histogram2 = histogram2;
+
+            sHO[i].Histogram3 = histogram3;
+
+            sHO[i].CompletionCounter = &completionCounter;
+        }
+
+        // Append leftovers to the
+        // last thread
+
+        sHO[threadCount - 1].Length += CompactArray.Length(array) % threadCount;
 
 
-            // Reset the offset table
+        // Scedule and run the work
 
-            offsetTable[0] ^= offsetTable[0];
-
-
-            // Evaluate the source and target array
-
-            int* source;
-
-            int* target;
-
+        {
+            Job job = new()
             {
-                bool swapIndicator = (p & 1) == 0;
+                Method = (delegate*<nuint, void>)(delegate*<setHistogramOverload*, void>)&setHistogram
+            };
 
-                source = swapIndicator ? array : swapBuffer;
+            for (int i = threadCount - 1; i > -1; i--)
+            {
+                job.Overload = (nuint)(&sHO[i]);
 
-                target = swapIndicator ? swapBuffer : array;
+                JobCenter.RunJob(job);
             }
-
-
-            /*// Count the instances
-
-            for(int i = 0; i < CompactArray.Length(array); i++)
-            {
-                byte val = (byte)(source[i] >> (8 * p));                
-
-                counter[val]++;
-            }*/
-
-
-            // Build the offset table
-
-            for(int i = 1; i < 256; i++)
-                offsetTable[i] = offsetTable[i - 1] + counter[i - 1];
-
-            
-            /*// Save the values at their
-            // orderly index
-
-            for(int i = 0; i < CompactArray.Length(array); i++)
-            {
-                byte val = (byte)(source[i] >> (8 * p));                
-
-                target[offsetTable[val]++] = source[i];
-            }*/
         }
 
 
-        // The final pass
+        // Wait for all jobs to finish
+        // and reset the counter afterwards
+
+        while(completionCounter != threadCount);
+
+        completionCounter ^= completionCounter;
 
 
-        // Reset the counter
+        // Free the resources of the overload
 
-        for(byte i = 0; i < 256 / 2; i++)
-            ((long*)counter)[i] ^= ((long*)counter)[i];
+        NativeMemory.Free(sHO);
 
 
-        // Count the instances
+        // Sum the records of the histograms
+        // with their previous ones
 
-        for(int i = 0; i < CompactArray.Length(array); i++)
+        for(int i = 1; i < 256; i++)
         {
-            byte val = (byte)(swapBuffer[i] >> 24);                
+            histogram0[i] += histogram0[i - 1];
 
-            counter[val]++;
+            histogram1[i] += histogram1[i - 1];
+
+            histogram2[i] += histogram2[i - 1];
+
+            histogram3[(byte)(i + 128)] += histogram3[(byte)((byte)(i + 128) - 1)];
         }
 
 
-        // Count the amount of negative values
-
-        int numNeg = 0;
-
-        for(int i = 128; i < 256; i++)
-            numNeg += counter[i];
-
-        
-        // Reset the offset table
-        // for the positive portion
-
-        offsetTable[0] = numNeg;
-
-        // Build the offset table
-        // for the positive values
-
-        for(int i = 1; i < 128; i++)
-            offsetTable[i] = offsetTable[i - 1] + counter[i - 1];    
+        // Now, do the ordering
 
 
-        // Reset the offset table
-        // for the negative portion
+        Sse.PrefetchNonTemporal(array);
 
-        offsetTable[128] ^= offsetTable[128];
-
-        // Build the offset table
-        // for the positive values
-
-        for(int i = 129; i < 256; i++)
-            offsetTable[i] = offsetTable[i - 1] + counter[i - 1]; 
+        Sse.PrefetchNonTemporal(swapBuffer);
 
 
-        // Save the values at their
-        // orderly index
+        // The first pass
 
-        for(int i = 0; i < CompactArray.Length(array); i++)
+        Sse.Prefetch0(histogram0);
+
+        for(int i = CompactArray.Length(array) - 1; i > -1; i--)
         {
-            byte val = (byte)(swapBuffer[i] >> 24);                
+            byte val = (byte)array[i];
 
-            array[offsetTable[val]++] = swapBuffer[i];
-        }   
+            swapBuffer[histogram0[val]--] = array[i];
+        }
+
+        // The second pass
+
+        Sse.Prefetch0(histogram1);
+
+        for(int i = CompactArray.Length(array) - 1; i > -1; i--)
+        {
+            byte val = (byte)(swapBuffer[i] >> 8);
+
+            array[histogram1[val]--] = swapBuffer[i];
+        }
+
+        // The third pass
+
+        Sse.Prefetch0(histogram2);
+
+        for(int i = CompactArray.Length(array) - 1; i > -1; i--)
+        {
+            byte val = (byte)(array[i] >> 16);
+
+            swapBuffer[histogram2[val]--] = array[i];
+        }
+
+        // The fourth pass
+
+        Sse.Prefetch0(histogram3);
+
+        for(int i = CompactArray.Length(array) - 1; i > -1; i--)
+        {
+            byte val = (byte)(swapBuffer[i] >> 24);
+
+            array[histogram3[val]--] = swapBuffer[i];
+        }
 
 
         // Free the swapbuffer
 
         NativeMemory.Free(swapBuffer);
-
-        
-        // A job for counting instances
-
-        static void countInstance(countInstanceOverload* overload)
-        {
-            for(int i = overload->length - 1; i > -1; i--)
-            {
-                byte val = (byte)(overload->array[i] >> overload->shift);                
-
-                overload->counter[val]++;
-            }
-        }
-
-
-        // A job for ordering the elements
-
-        static void order(orderOverload* overload)
-        {
-            for(int i = overload->length - 1; i > -1; i--)
-            {
-                byte val = (byte)(overload->source[i] >> overload->shift);                
-
-                overload->target[overload->offsetTable[val]++] = overload->source[i];
-            }   
-        }
     }
 
 
-    private struct countInstanceOverload
+    private struct orderElementsOverload
     {
-        public int* counter;
-        
-        public int* array;
-        
-        public int length;
-        
-        public byte shift;
+        public volatile int* From, To;
+
+        public volatile int* Histogram;
+
+        public volatile int* CompletionCounter;
+
+        public int Length;
+
+        public byte Shift;
     }
 
 
-    private struct orderOverload
+    private struct setHistogramOverload
     {
-        public int* offsetTable;
+        public int* Array;
 
-        public int* source;
+        public volatile int* Histogram0, Histogram1, Histogram2, Histogram3;
 
-        public int* target;
+        public volatile int* CompletionCounter;
 
-        public int length;
+        public int Length;
+    }
 
-        public byte shift;
+    private static void setHistogram(setHistogramOverload* overload)
+    {
+        Sse.PrefetchNonTemporal(overload->Histogram0);
+
+        Sse.PrefetchNonTemporal(overload->Histogram1);
+
+        Sse.PrefetchNonTemporal(overload->Histogram2);
+
+        Sse.PrefetchNonTemporal(overload->Histogram3);
+
+
+        Sse.Prefetch0(overload->Array);
+
+
+        for(int i = overload->Length - 1; i > -1; i--)
+        {
+            int val = overload->Array[i];
+
+
+            Interlocked.Increment(ref overload->Histogram0[(byte)val]);
+
+            val >>= 8;
+
+
+            Interlocked.Increment(ref overload->Histogram1[(byte)val]);
+
+            val >>= 8;
+
+
+            Interlocked.Increment(ref overload->Histogram2[(byte)val]);
+
+            val >>= 8;
+
+
+            Interlocked.Increment(ref overload->Histogram3[(byte)val]);
+        }
+
+
+        Interlocked.Increment(ref Unsafe.AsRef<int>(overload->CompletionCounter));
     }
 }

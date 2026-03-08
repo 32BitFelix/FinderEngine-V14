@@ -24,10 +24,12 @@ in vec2 texCoord;
 // fragment shader
 void main()
 {
-    vec4 texColor = texture(sampler2D(bindlessTex), texCoord) * color;
+    //vec4 texColor = texture(sampler2D(bindlessTex), texCoord) * color;
 
-    if(texColor.a == 0)
-        discard;
+    //if(texColor.a == 0)
+    //    discard;
 
-    FragColor = texColor;
+    //FragColor = texColor;
+
+    FragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);
 }

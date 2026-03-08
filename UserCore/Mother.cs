@@ -80,7 +80,7 @@ public unsafe static class Main
         }
 
 
-        const int entCount = 1000;
+        const int entCount = 10;
 
         ents = (int*)NativeMemory.Alloc(sizeof(int) * entCount);
 
@@ -153,10 +153,6 @@ public unsafe static class Main
     }
 
 
-    public static float cnt;
-
-    const float target = 1.0f;
-
     public static void Update()
     {  
         if(KBM.IsHeld((int)Keys.Escape))
@@ -165,22 +161,10 @@ public unsafe static class Main
 
         Transform* camTran = (Transform*)Finder.GetComponent(pCamera, Transform.ComponentID);
 
-        camTran->Translation.X += Finder.DeltaTime * 5;
+        //camTran->Translation.X += Finder.DeltaTime * 5;
 
 
-        /*if(cnt < target)
-        {
-            cnt += Finder.GlobalDeltaTime;
-
-            Console.WriteLine(cnt + "CurCounter");
-        }
-
-        
-        if(cnt >= target)
-            Console.WriteLine("COUNTED");*/
-
-
-        /*bool up = KBM.IsHeld((int)Keys.W);
+        bool up = KBM.IsHeld((int)Keys.W);
 
         bool down = KBM.IsHeld((int)Keys.S);
 
@@ -189,13 +173,10 @@ public unsafe static class Main
         bool right = KBM.IsHeld((int)Keys.D);
 
 
-        const float speed = 50;
+        const float speed = 5;
 
 
         float delta = speed * Finder.DeltaTime;
-
-
-        Console.WriteLine(Finder.DeltaTime);
 
 
         camTran->Translation.Y += (*(byte*)&up & 1) * delta;
@@ -204,7 +185,7 @@ public unsafe static class Main
 
         camTran->Translation.X -= (*(byte*)&left & 1) * delta;
 
-        camTran->Translation.X += (*(byte*)&right & 1) * delta;*/
+        camTran->Translation.X += (*(byte*)&right & 1) * delta;
     }
 
 

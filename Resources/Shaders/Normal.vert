@@ -4,7 +4,7 @@
 
 // The reference to the
 // sprite's texture
-layout (location = 0) in uvec2 aBindlessTex;
+/*layout (location = 0) in uvec2 aBindlessTex;
 
 // The color modifiers for
 // the sprite's texture
@@ -13,7 +13,7 @@ layout (location = 1) in vec4 aColor;
 // The matrix that specifies
 // teh sprites position in
 // world space
-layout (location = 2) in mat4 model;
+layout (location = 2) in mat4 model;*/
 
 
 // The matrix that specifies
@@ -23,6 +23,22 @@ uniform mat4 view;
 // The matrix that specifies
 // the camera's projection
 uniform mat4 projection;
+
+
+// The texture buffer to store
+// bindless texture references
+
+uniform samplerBuffer bindlessTexBuffer;
+
+// The texture buffer to store
+// color modifiers
+
+uniform samplerBuffer colorModBuffer;
+
+// The texture buffer to store
+// model matrices
+
+uniform samplerBuffer modelMatBuffer;
 
 
 // The vertex positions for each vertex
@@ -52,7 +68,7 @@ flat out vec4 color;
 
 // Relays the current
 // UV coordinate to the
-// fragment shader
+// fragment shader (with interpolation)
 out vec2 texCoord;
 
 
@@ -63,7 +79,17 @@ void main()
     // Set the position of the
     // vertex to the screen
 
-    gl_Position = vec4(constPos[gl_VertexID], 1.0) * transpose(model) * view * projection;
+    //gl_Position = vec4(constPos[gl_VertexID], 1.0) * transpose(model) * view * projection;
+
+
+    gl_Position = vec4(constPos[gl_VertexID], 1.0);
+
+
+    //int first = i % len;
+            
+    //int second = i - first * 2 - 1;
+            
+    //int val = i >= len ? second : first;
 
 
     // Set the values, that
@@ -72,7 +98,7 @@ void main()
 
     texCoord = constCoord[gl_VertexID];
 
-    color = aColor;
+    //color = aColor;
 
-    bindlessTex = aBindlessTex;
+    //bindlessTex = aBindlessTex;
 }

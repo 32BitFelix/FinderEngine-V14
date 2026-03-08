@@ -454,7 +454,7 @@ public unsafe static class WindowManager
 
         GLFW.Terminate();
     }   
-
+    
 
     // The method to handle all
     // resize events of the window
@@ -533,5 +533,5 @@ public unsafe static class WindowManager
 
 
     public static void CloseWindow()
-        =>GLFW.SetWindowShouldClose(windowPtr, true);
+        => GLFW.SetWindowShouldClose(windowPtr, true);
 }

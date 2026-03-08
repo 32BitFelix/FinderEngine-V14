@@ -789,46 +789,13 @@ public unsafe static class Finder
             // Create a scedule for the level
 
             {
-                // Update check
+                // Post render check
 
-                bool check = levels[i].Update != 0;
-
-                *(byte*)&check &= 1;
-
-                levelScedule[0] = levels[i].Update * *(byte*)&check;
-
-                levelSceduleLength += *(byte*)&check;
-
-
-                // Broad phase check
-
-                check = (levels[i].BroadPhase != 0) && fixedCheck;
+                bool check = levels[i].PostRender != 0;
 
                 *(byte*)&check &= 1;
 
-                levelScedule[levelSceduleLength] = levels[i].BroadPhase * *(byte*)&check;
-
-                levelSceduleLength += *(byte*)&check;
-
-
-                // Narrow phase check
-
-                check = (levels[i].NarrowPhase != 0) && fixedCheck;
-
-                *(byte*)&check &= 1;
-
-                levelScedule[levelSceduleLength] = levels[i].NarrowPhase * *(byte*)&check;
-
-                levelSceduleLength += *(byte*)&check;
-
-
-                // Pre render check
-
-                check = levels[i].PreRender != 0;
-
-                *(byte*)&check &= 1;
-
-                levelScedule[levelSceduleLength] = levels[i].PreRender * *(byte*)&check;
+                levelScedule[0] = levels[i].PostRender * *(byte*)&check;
 
                 levelSceduleLength += *(byte*)&check;
 
@@ -844,13 +811,46 @@ public unsafe static class Finder
                 levelSceduleLength += *(byte*)&check;
 
 
-                // Post render check
+                // Pre render check
 
-                check = levels[i].PostRender != 0;
+                check = levels[i].PreRender != 0;
 
                 *(byte*)&check &= 1;
 
-                levelScedule[levelSceduleLength] = levels[i].PostRender * *(byte*)&check;
+                levelScedule[levelSceduleLength] = levels[i].PreRender * *(byte*)&check;
+
+                levelSceduleLength += *(byte*)&check;
+
+
+                // Narrow phase check
+
+                check = (levels[i].NarrowPhase != 0) && fixedCheck;
+
+                *(byte*)&check &= 1;
+
+                levelScedule[levelSceduleLength] = levels[i].NarrowPhase * *(byte*)&check;
+
+                levelSceduleLength += *(byte*)&check;
+
+
+                // Broad phase check
+
+                check = (levels[i].BroadPhase != 0) && fixedCheck;
+
+                *(byte*)&check &= 1;
+
+                levelScedule[levelSceduleLength] = levels[i].BroadPhase * *(byte*)&check;
+
+                levelSceduleLength += *(byte*)&check;
+
+
+                // Update check
+
+                check = levels[i].Update != 0;
+
+                *(byte*)&check &= 1;
+
+                levelScedule[levelSceduleLength] = levels[i].Update * *(byte*)&check;
 
                 levelSceduleLength += *(byte*)&check;
             }
@@ -858,7 +858,7 @@ public unsafe static class Finder
             
             // Iterate through each evaluated level event
 
-            for(byte u = 0; u < levelSceduleLength; u++)
+            for(byte u = (byte)(levelSceduleLength - 1); u < 255; u--)
                 ((delegate*<void>)levelScedule[u])();
 
 
@@ -939,46 +939,13 @@ public unsafe static class Finder
 
                 for(int s = CompactArray.Length((nuint*)arch->Systems) - 1; s > -1; s--)
                 {
-                    // Update check
+                    // Post render check
 
-                    bool check = arch->Systems[s]->Update != null;
-
-                    *(byte*)&check &= 1;
-
-                    sysSchedule[sysScheduleLen] = (nuint)arch->Systems[s]->Update * *(byte*)&check;
-
-                    sysScheduleLen += *(byte*)&check;
-
-
-                    // Broad phase check
-
-                    check = arch->Systems[s]->BroadPhase != null && fixedCheck;
+                    bool check = arch->Systems[s]->PostRender != null;
 
                     *(byte*)&check &= 1;
 
-                    sysSchedule[sysScheduleLen] = (nuint)arch->Systems[s]->BroadPhase * *(byte*)&check;
-
-                    sysScheduleLen += *(byte*)&check;
-
-
-                    // Narrow phase check
-
-                    check = arch->Systems[s]->NarrowPhase != null && fixedCheck;
-
-                    *(byte*)&check &= 1;
-
-                    sysSchedule[sysScheduleLen] = (nuint)arch->Systems[s]->NarrowPhase * *(byte*)&check;
-
-                    sysScheduleLen += *(byte*)&check;
-
-
-                    // Pre render check
-
-                    check = arch->Systems[s]->PreRender != null;
-
-                    *(byte*)&check &= 1;
-
-                    sysSchedule[sysScheduleLen] = (nuint)arch->Systems[s]->PreRender * *(byte*)&check;
+                    sysSchedule[sysScheduleLen] = (nuint)arch->Systems[s]->PostRender * *(byte*)&check;
 
                     sysScheduleLen += *(byte*)&check;
 
@@ -994,13 +961,46 @@ public unsafe static class Finder
                     sysScheduleLen += *(byte*)&check;
 
 
-                    // Post render check
+                    // Pre render check
 
-                    check = arch->Systems[s]->PostRender != null;
+                    check = arch->Systems[s]->PreRender != null;
 
                     *(byte*)&check &= 1;
 
-                    sysSchedule[sysScheduleLen] = (nuint)arch->Systems[s]->PostRender * *(byte*)&check;
+                    sysSchedule[sysScheduleLen] = (nuint)arch->Systems[s]->PreRender * *(byte*)&check;
+
+                    sysScheduleLen += *(byte*)&check;
+
+
+                    // Narrow phase check
+
+                    check = arch->Systems[s]->NarrowPhase != null && fixedCheck;
+
+                    *(byte*)&check &= 1;
+
+                    sysSchedule[sysScheduleLen] = (nuint)arch->Systems[s]->NarrowPhase * *(byte*)&check;
+
+                    sysScheduleLen += *(byte*)&check;
+
+
+                    // Broad phase check
+
+                    check = arch->Systems[s]->BroadPhase != null && fixedCheck;
+
+                    *(byte*)&check &= 1;
+
+                    sysSchedule[sysScheduleLen] = (nuint)arch->Systems[s]->BroadPhase * *(byte*)&check;
+
+                    sysScheduleLen += *(byte*)&check;
+
+
+                    // Update check
+
+                    check = arch->Systems[s]->Update != null;
+
+                    *(byte*)&check &= 1;
+
+                    sysSchedule[sysScheduleLen] = (nuint)arch->Systems[s]->Update * *(byte*)&check;
 
                     sysScheduleLen += *(byte*)&check;
                 }
