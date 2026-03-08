@@ -76,13 +76,35 @@ out vec2 texCoord;
 // vertex shader
 void main()
 {
+    int index = gl_InstanceID - (gl_InstanceID % 2);
+
+
+    mat4 model;
+
+    /*model[0] = texelFetch(modelMatBuffer, index * 4);
+
+    model[1] = texelFetch(modelMatBuffer, index * 4 + 1);
+
+    model[2] = texelFetch(modelMatBuffer, index * 4 + 2);
+
+    model[3] = texelFetch(modelMatBuffer, index * 4 + 3);*/
+
+    model[0] = texelFetch(modelMatBuffer, 0);
+
+    model[1] = texelFetch(modelMatBuffer, 1);
+
+    model[2] = texelFetch(modelMatBuffer, 2);
+
+    model[3] = texelFetch(modelMatBuffer, 3);
+
+
     // Set the position of the
     // vertex to the screen
 
-    //gl_Position = vec4(constPos[gl_VertexID], 1.0) * transpose(model) * view * projection;
+    gl_Position = vec4(constPos[gl_VertexID], 1.0) * transpose(model) * view * projection;
 
 
-    gl_Position = vec4(constPos[gl_VertexID], 1.0);
+    //gl_Position = vec4(constPos[gl_VertexID], 1.0);
 
 
     //int first = i % len;

@@ -93,7 +93,7 @@ public static unsafe class SpriteRenderSystem
         SpriteProgram.Create("./Resources/Shaders/Normal.vert", "./Resources/Shaders/Sprite.frag");
 
 
-        /*// Create the texture buffer, that'll
+        // Create the texture buffer, that'll
         // hold the bindless texture references
 
         bindlessTexRefs.Create(SizedInternalFormat.R32i, null, 0);
@@ -108,7 +108,14 @@ public static unsafe class SpriteRenderSystem
         // Create the texture buffer, that'll
         // hold the model matrices
 
-        modelMatrices.Create(SizedInternalFormat.R32f, null, 0);*/
+        modelMatrices.Create(SizedInternalFormat.R32f, null, 0);
+
+
+        VAO = GL.GenVertexArray();
+
+        GL.EnableVertexAttribArray(VAO);
+
+        Console.WriteLine(GL.GetError());
 
 
         // Create the element buffer
@@ -165,6 +172,8 @@ public static unsafe class SpriteRenderSystem
     public static int EBO;*/
 
 
+    // The shader program to 
+
     public static ProgramObj SpriteProgram;
 
 
@@ -175,8 +184,7 @@ public static unsafe class SpriteRenderSystem
     private static TextureBufferObj modelMatrices;
 
 
-    private static int EBO;
-
+    private static int EBO, VAO;
 
 
     private static EntityPoint* eP;
@@ -357,16 +365,39 @@ public static unsafe class SpriteRenderSystem
         Console.WriteLine("----- " + validSprites);*/
 
 
-        GL.BindVertexArray(0);
+        // Saturate the model matrix texture buffer
+        // and bind it to texture unit 2
+
+        GL.BindBuffer(BufferTarget.TextureBuffer, modelMatrices.BO);
+
+        GL.BufferData(BufferTarget.TextureBuffer, validSprites * sizeof(Matrix4), 0, BufferUsageHint.DynamicDraw);
+
+        {
+            Matrix4* ptr = (Matrix4*)GL.MapBuffer(BufferTarget.TextureBuffer, BufferAccess.WriteOnly);
+
+            for(int i = 0; i < validSprites; i++)
+            {
+                Transform* tran = (Transform*)Finder.GetComponent(eP[i].Entity, Transform.ComponentID);
+
+                ptr[i] = tran->GetModelMatrix(eP[i].Entity);
+            }
+
+            GL.UnmapBuffer(BufferTarget.TextureBuffer);
+        }
+
+        modelMatrices.Use(TextureUnit.Texture2);
+
+
+        Console.WriteLine(GL.GetError());
+
+
+        GL.BindVertexArray(VAO);
 
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, EBO);
 
         SpriteProgram.Use();
 
         GL.DrawElementsInstanced(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedByte, 0, validSprites << 1);       
-
-
-        Console.WriteLine(GL.GetError()); 
     }
 
 
