@@ -160,16 +160,6 @@ public unsafe static class KBM
             cursorXPos = X;
 
             cursorYPos = Y;
-
-
-            // Keep the cursor within the bounds of the screen
-
-            if(GLFW.GetInputMode(WindowManager.windowPtr, CursorStateAttribute.Cursor) == CursorModeValue.CursorDisabled)
-            {
-                GLFW.GetFramebufferSize(WindowManager.windowPtr, out int width, out int height);
-
-                GLFW.SetCursorPos(WindowManager.windowPtr, double.Clamp(X, 0, width), double.Clamp(Y, 0, height));
-            }
         }
 
 

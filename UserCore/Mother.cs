@@ -80,14 +80,25 @@ public unsafe static class Main
         }
 
 
-        const int entCount = 10;
+        int* entComps = stackalloc int[3];
 
-        ents = (int*)NativeMemory.Alloc(sizeof(int) * entCount);
+        entComps[0] = Sprite.ComponentID;
 
-        Finder.CreateEntities(ents, entCount);
+        entComps[1] = Transform.ComponentID;
 
-        for(int i = 0; i < entCount; i++)
-            Finder.AddComponents(ents[i], comps, 2);
+        entComps[2] = Rotator.ComponentID;
+
+        const int entCount = 1000;
+
+        ents = (int*)NativeMemory.Alloc(sizeof(int) * entCount * 3);
+
+        Finder.CreateEntities(ents, entCount * 3);
+
+        for(int i = 0; i < entCount * 3; i++)
+            Finder.AddComponents(ents[i], entComps, 3);
+
+
+        // Make the opaque boxes
 
         for(int i = 0; i < entCount; i++)
         {
@@ -97,18 +108,63 @@ public unsafe static class Main
 
             tran->Rotation = (0, 0, 0, 0);
 
-            tran->Translation = (i * 2, -2, 0, 0);
+            tran->Translation = (i % (int)MathF.Sqrt(entCount) * 2, i % entCount / (int)MathF.Sqrt(entCount) * 2, 0, 0);            
 
 
             Sprite* spr = (Sprite*)Finder.GetComponent(ents[i], Sprite.ComponentID);
 
             spr->RGBA = 255 | (255 << 8) | (255 << 16) | (255 << 24);
 
+            uint color = uint.MaxValue;
+
+            spr->Texture.Create((byte*)&color, 1, 1, false);   
+        }
+
+
+        // Make the slightly transparent boxes
+
+        for(int i = entCount; i < entCount * 2; i++)
+        {
+            Transform* tran = (Transform*)Finder.GetComponent(ents[i], Transform.ComponentID);
+
+            tran->Scale = (1, 1, 1, 1);
+
+            tran->Rotation = (0, 0, 0, 0);
+
+            tran->Translation = (i % (int)MathF.Sqrt(entCount) * 2, i % entCount / (int)MathF.Sqrt(entCount) * 2, 1, 0);            
+
+
+            Sprite* spr = (Sprite*)Finder.GetComponent(ents[i], Sprite.ComponentID);
+
+            spr->RGBA = 255 | (255 << 8) | (255 << 16) | (255 << 24);
+
+            int color = (255 << 8) | (150 << 24);
+
+            spr->Texture.Create((byte*)&color, 1, 1, false);   
+        }
+
+
+        // Make the very transparent boxes
+
+        for(int i = entCount * 2; i < entCount * 3; i++)
+        {
+            Transform* tran = (Transform*)Finder.GetComponent(ents[i], Transform.ComponentID);
+
+            tran->Scale = (1, 1, 1, 1);
+
+            tran->Rotation = (0, 0, 0, 0);
+
+            tran->Translation = (i % (int)MathF.Sqrt(entCount) * 2, i % entCount / (int)MathF.Sqrt(entCount) * 2, 2, 0);            
+
+
+            Sprite* spr = (Sprite*)Finder.GetComponent(ents[i], Sprite.ComponentID);
+
+            spr->RGBA = 255 | (255 << 8) | (255 << 16) | (100 << 24);
+
             int color = Random.Shared.Next();
 
-            spr->Texture.Create((byte*)&color, 1, 1, false);
-        }                 
-
+            spr->Texture.Create((byte*)&color, 1, 1, false);   
+        }
 
 
         int* camComps = stackalloc int[2];
@@ -141,15 +197,13 @@ public unsafe static class Main
 
             cam->FieldOfView = 90;
 
-            cam->IsOrthographic = true;
-
-            cam->ProjectionSize = 20;
+            cam->ProjectionSize = 0.0f;
         }
 
 
-        /*WindowManager.WindowState = OpenTK.Windowing.Common.WindowState.Fullscreen;
+        WindowManager.WindowState = OpenTK.Windowing.Common.WindowState.Fullscreen;
 
-        WindowManager.CursorState = CursorModeValue.CursorDisabled;*/
+        WindowManager.CursorState = CursorModeValue.CursorDisabled;
     }
 
 
@@ -160,8 +214,6 @@ public unsafe static class Main
 
 
         Transform* camTran = (Transform*)Finder.GetComponent(pCamera, Transform.ComponentID);
-
-        //camTran->Translation.X += Finder.DeltaTime * 5;
 
 
         bool up = KBM.IsHeld((int)Keys.W);
@@ -186,6 +238,14 @@ public unsafe static class Main
         camTran->Translation.X -= (*(byte*)&left & 1) * delta;
 
         camTran->Translation.X += (*(byte*)&right & 1) * delta;
+
+
+        camTran->Rotation.Y += KBM.CursorVelocity.X;
+
+        camTran->Rotation.X += KBM.CursorVelocity.Y;
+
+
+        camTran->Rotation.X = Math.Clamp(camTran->Rotation.X, -90, 90);
     }
 
 
@@ -260,6 +320,41 @@ public unsafe static class A_Processor
     }
 
 } 
+
+
+[Component]
+public struct Rotator
+{
+    public static int ComponentID;
+}
+
+
+[System(false, false)]
+public unsafe static class RotatorSystem
+{
+    public static int[] Init()
+        => [Transform.ComponentID, Rotator.ComponentID];
+
+
+    public static void Update(ArchetypeIterator* iter)
+    {
+        float delta = Finder.DeltaTime * 20;
+
+        for(int i = 0; i < iter->Length(); i++)
+        {
+            if(iter->GetEntityID(i) < 2)
+                continue;
+
+
+            Transform* tran = (Transform*)iter->GetComponent(i, Transform.ComponentID);
+
+            tran->Rotation.Z += delta;
+        }
+
+
+    }
+
+}
 
 
 

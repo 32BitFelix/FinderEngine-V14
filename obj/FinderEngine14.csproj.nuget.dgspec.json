@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\FinderEngine-V14\\FinderEngine14.csproj": {}
+    "C:\\Users\\seyan\\Desktop\\FinderEngine-v14\\FinderEngine14.csproj": {}
   },
   "projects": {
-    "D:\\FinderEngine-V14\\FinderEngine14.csproj": {
+    "C:\\Users\\seyan\\Desktop\\FinderEngine-v14\\FinderEngine14.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\FinderEngine-V14\\FinderEngine14.csproj",
+        "projectUniqueName": "C:\\Users\\seyan\\Desktop\\FinderEngine-v14\\FinderEngine14.csproj",
         "projectName": "FinderEngine14",
-        "projectPath": "D:\\FinderEngine-V14\\FinderEngine14.csproj",
+        "projectPath": "C:\\Users\\seyan\\Desktop\\FinderEngine-v14\\FinderEngine14.csproj",
         "packagesPath": "C:\\Users\\seyan\\.nuget\\packages\\",
-        "outputPath": "D:\\FinderEngine-V14\\obj\\",
+        "outputPath": "C:\\Users\\seyan\\Desktop\\FinderEngine-v14\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\seyan\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -67,12 +67,31 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
+          "downloadDependencies": [
+            {
+              "name": "Microsoft.AspNetCore.App.Runtime.win-x64",
+              "version": "[8.0.22, 8.0.22]"
+            },
+            {
+              "name": "Microsoft.NETCore.App.Runtime.win-x64",
+              "version": "[8.0.22, 8.0.22]"
+            },
+            {
+              "name": "Microsoft.WindowsDesktop.App.Runtime.win-x64",
+              "version": "[8.0.22, 8.0.22]"
+            }
+          ],
           "frameworkReferences": {
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.418/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.416/PortableRuntimeIdentifierGraph.json"
+        }
+      },
+      "runtimes": {
+        "win-x64": {
+          "#import": []
         }
       }
     }

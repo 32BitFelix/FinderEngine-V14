@@ -146,6 +146,16 @@ public unsafe static class WindowManager
             GLFW.SetFramebufferSizeCallback(windowPtr, Marshal.GetDelegateForFunctionPointer<GLFWCallbacks.FramebufferSizeCallback>((nint)(delegate*<Window*, int, int, void>)&_resize));
 
 
+            /*GL.Enable(EnableCap.DepthTest);
+
+            GL.DepthFunc(DepthFunction.Less);*/
+
+
+            GL.Enable(EnableCap.Blend);
+
+            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+
             // Define the attachments of
             // the framebuffer
 

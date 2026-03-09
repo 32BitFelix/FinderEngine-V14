@@ -2,19 +2,6 @@
 
 #extension GL_EXT_nonuniform_qualifier : enable
 
-// The reference to the
-// sprite's texture
-/*layout (location = 0) in uvec2 aBindlessTex;
-
-// The color modifiers for
-// the sprite's texture
-layout (location = 1) in vec4 aColor;
-
-// The matrix that specifies
-// teh sprites position in
-// world space
-layout (location = 2) in mat4 model;*/
-
 
 // The matrix that specifies
 // the camera's position
@@ -25,19 +12,20 @@ uniform mat4 view;
 uniform mat4 projection;
 
 
+// The total amount of sprites
+uniform int spriteAmount;
+
+
 // The texture buffer to store
 // bindless texture references
-
-uniform samplerBuffer bindlessTexBuffer;
+uniform usamplerBuffer bindlessTexBuffer;
 
 // The texture buffer to store
-// color modifiers
-
-uniform samplerBuffer colorModBuffer;
+// colour modifiers
+uniform samplerBuffer colourModBuffer;
 
 // The texture buffer to store
 // model matrices
-
 uniform samplerBuffer modelMatBuffer;
 
 
@@ -62,65 +50,78 @@ const vec2 constCoord[4] = vec2[](vec2(0.0f, 0.0f),
 flat out uvec2 bindlessTex;
 
 // Relays the texture's
-// color modifier to the
+// colour modifier to the
 // fragment shader
-flat out vec4 color;
+flat out vec4 colour;
 
 // Relays the current
 // UV coordinate to the
 // fragment shader (with interpolation)
 out vec2 texCoord;
 
+// Relays the alpha tolerance
+// to the fragments shader
+out float tolerance;
+
 
 // Starting point of the
 // vertex shader
 void main()
 {
-    int index = gl_InstanceID - (gl_InstanceID % 2);
-
-
-    mat4 model;
-
-    /*model[0] = texelFetch(modelMatBuffer, index * 4);
-
-    model[1] = texelFetch(modelMatBuffer, index * 4 + 1);
-
-    model[2] = texelFetch(modelMatBuffer, index * 4 + 2);
-
-    model[3] = texelFetch(modelMatBuffer, index * 4 + 3);*/
-
-    model[0] = texelFetch(modelMatBuffer, 0);
-
-    model[1] = texelFetch(modelMatBuffer, 1);
-
-    model[2] = texelFetch(modelMatBuffer, 2);
-
-    model[3] = texelFetch(modelMatBuffer, 3);
-
-
-    // Set the position of the
-    // vertex to the screen
-
-    gl_Position = vec4(constPos[gl_VertexID], 1.0) * transpose(model) * view * projection;
-
-
-    //gl_Position = vec4(constPos[gl_VertexID], 1.0);
-
-
-    //int first = i % len;
-            
-    //int second = i - first * 2 - 1;
-            
-    //int val = i >= len ? second : first;
-
-
-    // Set the values, that
-    // will be relayed to the
-    // fragment shader
-
+    // Save the texture coordinate
     texCoord = constCoord[gl_VertexID];
 
-    //color = aColor;
 
-    //bindlessTex = aBindlessTex;
+    // Evaluate the instance ID
+    // of the current instance
+    int instanceID;
+
+    {
+        int first = gl_InstanceID % spriteAmount;
+
+        int second = gl_InstanceID - (first * 2) - 1;
+
+        instanceID = gl_InstanceID >= spriteAmount ? second : first;
+    }
+
+
+    // Set the tolerance to
+    // render the incoming fragments with
+    tolerance = gl_InstanceID < spriteAmount ? 1.0f : 0.0f;
+
+
+    // Sample the model matrix
+    {    
+        mat4 model;
+
+
+        int index = instanceID * 4;
+
+        model[0] = texelFetch(modelMatBuffer, index);
+
+        index++;
+
+        model[1] = texelFetch(modelMatBuffer, index);
+
+        index++;
+
+        model[2] = texelFetch(modelMatBuffer, index);
+
+        index++;
+
+        model[3] = texelFetch(modelMatBuffer, index);
+
+
+        // Set the position of the
+        // vertex to the screen
+        gl_Position = vec4(constPos[gl_VertexID], 1.0) * transpose(model) * view * projection;
+    }
+
+
+    // Sample the colour modifier
+    colour = texelFetch(colourModBuffer, instanceID);
+
+
+    // Sample the bindless texture
+    bindlessTex = texelFetch(bindlessTexBuffer, instanceID).xy;
 }

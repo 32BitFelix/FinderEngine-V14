@@ -92,30 +92,40 @@ public static unsafe class SpriteRenderSystem
 
         SpriteProgram.Create("./Resources/Shaders/Normal.vert", "./Resources/Shaders/Sprite.frag");
 
+        SpriteProgram.Use();
+
+        // Set the units of the uniform samplers
+
+        SpriteProgram.SetUniformInt("bindlessTexBuffer", 0);
+
+        SpriteProgram.SetUniformInt("colourModBuffer", 1);
+
+        SpriteProgram.SetUniformInt("modelMatBuffer", 2);
+
 
         // Create the texture buffer, that'll
         // hold the bindless texture references
 
-        bindlessTexRefs.Create(SizedInternalFormat.R32i, null, 0);
+        bindlessTexRefs.Create(SizedInternalFormat.Rg32ui, null, 0);
 
 
         // Create the texture buffer, that'll
         // hold the color modifiers
 
-        colorMods.Create(SizedInternalFormat.R32i, null, 0);
+        colorMods.Create(SizedInternalFormat.Rgba8, null, 0);
 
 
         // Create the texture buffer, that'll
         // hold the model matrices
 
-        modelMatrices.Create(SizedInternalFormat.R32f, null, 0);
+        modelMatrices.Create(SizedInternalFormat.Rgba32f, null, 0);
 
+
+        // Generate the dummy VAO
 
         VAO = GL.GenVertexArray();
 
         GL.EnableVertexAttribArray(VAO);
-
-        Console.WriteLine(GL.GetError());
 
 
         // Create the element buffer
@@ -149,27 +159,6 @@ public static unsafe class SpriteRenderSystem
     {
         
     }
-
-
-    /*const int bindlessTexSize = sizeof(long);
-
-    const int colorModSize = sizeof(byte) * 4;
-
-    const int modelMatSize = sizeof(float) * 16;
-
-
-    const int blockSize = bindlessTexSize + colorModSize + modelMatSize; 
-
-
-    public static int VBO;
-
-    private static int VBOLength;
-
-    private static int spriteAmount;
-
-    public static int VAO;
-
-    public static int EBO;*/
 
 
     // The shader program to 
@@ -234,89 +223,11 @@ public static unsafe class SpriteRenderSystem
         CameraSystem.AddDispatch(&spriteDispatch);
 
         CameraSystem.AddPostDispatch(&spritePostDispatch);
-
-
-        /*for(int i = 0; i < iter->Length(); i++)
-        {
-            if(iter->GetEntityID(i) < 2)
-                continue;
-
-
-            Sprite* curSprite = (Sprite*)iter->GetComponent(i, Sprite.ComponentID);
-
-            Transform* curTran = (Transform*)iter->GetComponent(i, Transform.ComponentID);
-
-            Matrix4 modelMat = curTran->GetModelMatrix(iter->GetEntityID(i)); 
-
-
-            // Resize the vertex buffer,
-            // if there is some more space needed
-
-            if(VBOLength <= spriteAmount)
-            {
-                VBOLength = spriteAmount + 1;
-
-                GL.BufferData(BufferTarget.ArrayBuffer, blockSize * VBOLength, 0, BufferUsageHint.DynamicDraw);
-            }
-
-
-            {
-                void* ptr = (void*)GL.MapBuffer(BufferTarget.ArrayBuffer, BufferAccess.WriteOnly);
-
-
-                long* bindless = (long*)((nint)ptr + spriteAmount * blockSize);
-
-                *bindless = curSprite->Texture.BTO;
-
-
-                int* RGBA = (int*)((nint)ptr + spriteAmount * blockSize + bindlessTexSize);
-
-                *RGBA = curSprite->RGBA;
-
-
-                Matrix4* mat = (Matrix4*)((nint)ptr + spriteAmount * blockSize + bindlessTexSize + colorModSize); 
-
-                *mat = modelMat;
-
-
-                GL.UnmapBuffer(BufferTarget.ArrayBuffer);
-            }
-
-
-            spriteAmount++;
-        }
-
-
-        if(!iter->IsLast)
-            return;
-
-        CameraSystem.AddDispatch(&spriteDispatch);*/
     }
 
 
     private static void spriteDispatch(int cameraID)
     {
-        /*Transform* camTran = (Transform*)Finder.GetComponent(cameraID, Transform.ComponentID);
-
-        Camera* cam = (Camera*)Finder.GetComponent(cameraID, Camera.ComponentID);
-
-
-        SpriteProgram.SetUniformMatrix4("view", camTran->GetViewMatrix(cameraID));
-
-        SpriteProgram.SetUniformMatrix4("projection", cam->GetProjection());
-
-
-        GL.BindVertexArray(VAO);
-
-        GL.BindBuffer(BufferTarget.ElementArrayBuffer, EBO);
-
-        SpriteProgram.Use();
-
-        GL.DrawElementsInstanced(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedByte, 0, spriteAmount);
-
-        spriteAmount ^= spriteAmount;*/
-
-
         // Get the translation of the current camera
 
         Transform* camTran = (Transform*)Finder.GetComponent(cameraID, Transform.ComponentID);
@@ -326,11 +237,22 @@ public static unsafe class SpriteRenderSystem
         Vector4 camTranslation = camTran->GetGlobalTranslation(cameraID);
 
 
+        // Use the shader program
+
+        SpriteProgram.Use();
+
+
         // Set the uniforms related to the camera
 
         SpriteProgram.SetUniformMatrix4("view", camTran->GetViewMatrix(cameraID));
 
         SpriteProgram.SetUniformMatrix4("projection", cam->GetProjection());
+
+
+        // Set the uniform, that stores
+        // the amount of sprites to render
+
+        SpriteProgram.SetUniformInt("spriteAmount", validSprites);
 
 
         // Saturate the entity-point array with the most
@@ -356,13 +278,56 @@ public static unsafe class SpriteRenderSystem
         }
 
 
+        // Sort the sprites based on
+        // their distance to the camera
+
         Sorting.RadixSort(eP, validSprites);
 
     
-        /*for(int i = 0; i < validSprites; i++)
-            Console.WriteLine(eP[i].Entity + " " + eP[i].Point);
+        // Saturate the bindless texture texture buffer
+        // and bind it to texture unit 0
 
-        Console.WriteLine("----- " + validSprites);*/
+        GL.BindBuffer(BufferTarget.TextureBuffer, bindlessTexRefs.BO);
+
+        GL.BufferData(BufferTarget.TextureBuffer, validSprites * sizeof(long), 0, BufferUsageHint.DynamicDraw);
+
+        {
+            long* ptr = (long*)GL.MapBuffer(BufferTarget.TextureBuffer, BufferAccess.WriteOnly);
+
+            for(int i = 0; i < validSprites; i++)
+            {
+                Sprite* spr = (Sprite*)Finder.GetComponent(eP[i].Entity, Sprite.ComponentID);
+
+                ptr[i] = spr->Texture.BTO;
+            }
+
+            GL.UnmapBuffer(BufferTarget.TextureBuffer);
+        }
+
+        bindlessTexRefs.Use(TextureUnit.Texture0);
+
+
+        // Saturate the colour modifier texture buffer
+        // and bind it to texture unit 1
+
+        GL.BindBuffer(BufferTarget.TextureBuffer, colorMods.BO);
+
+        GL.BufferData(BufferTarget.TextureBuffer, validSprites * sizeof(byte) * 4, 0, BufferUsageHint.DynamicDraw);
+
+        {
+            int* ptr = (int*)GL.MapBuffer(BufferTarget.TextureBuffer, BufferAccess.WriteOnly);
+
+            for(int i = 0; i < validSprites; i++)
+            {
+                Sprite* spr = (Sprite*)Finder.GetComponent(eP[i].Entity, Sprite.ComponentID);
+
+                ptr[i] = spr->RGBA;
+            }
+
+            GL.UnmapBuffer(BufferTarget.TextureBuffer);
+        }
+
+        colorMods.Use(TextureUnit.Texture1);
 
 
         // Saturate the model matrix texture buffer
@@ -388,16 +353,14 @@ public static unsafe class SpriteRenderSystem
         modelMatrices.Use(TextureUnit.Texture2);
 
 
-        Console.WriteLine(GL.GetError());
-
+        // Bind the EBO, dummy VAO
+        // and make a draw call
 
         GL.BindVertexArray(VAO);
 
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, EBO);
 
-        SpriteProgram.Use();
-
-        GL.DrawElementsInstanced(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedByte, 0, validSprites << 1);       
+        GL.DrawElementsInstanced(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedByte, 0, validSprites << 1);   
     }
 
 
@@ -565,6 +528,9 @@ public static unsafe class CameraSystem
 }
 
 
+// The sprite component is used to
+// display an oriented image
+
 [Component]
 public unsafe struct Sprite
 {
@@ -586,8 +552,8 @@ public unsafe struct Camera
     public static int ComponentID;
 
 
-    // Indicates how narrow the
-    // camera should be
+    // Indicates how wide the
+    // camera's view should be
 
     public float FieldOfView
     {
@@ -611,14 +577,11 @@ public unsafe struct Camera
 
 
     // The size of the camera's view
+    // with orthographic projection.
+    // If the value is non zero, then
+    // the camera will be treated as orthographic
 
     public float ProjectionSize;
-
-
-    // Indicates, if the camera's
-    // projection is orthographic
-
-    public bool IsOrthographic;
 }
 
 
@@ -627,7 +590,7 @@ public unsafe static class CameraExt
     public static Matrix4 GetProjection(this ref Camera cam)
     {
         Matrix4 result =
-            cam.IsOrthographic ? Matrix4.CreateOrthographic(cam.ProjectionSize * WindowManager.AspectRatio, cam.ProjectionSize, cam.NearClip, cam.FarClip) :
+            cam.ProjectionSize != 0.0f ? Matrix4.CreateOrthographic(cam.ProjectionSize * WindowManager.AspectRatio, cam.ProjectionSize, cam.NearClip, cam.FarClip) :
                 Matrix4.CreatePerspectiveFieldOfView(cam._fov, WindowManager.AspectRatio, cam.NearClip, cam.FarClip);
 
         return result;
@@ -670,28 +633,10 @@ public unsafe static class TextureBufferObjExt
 
         GL.BindBuffer(BufferTarget.TextureBuffer, tbObj.BO);
 
-        {
-            // Evaluate the size of the given type
+    
+        // Save the given data to the buffer
 
-            int typeSize = 0;
-
-            switch(format)
-            {
-                case SizedInternalFormat.R32i:
-                    typeSize = sizeof(int);
-                break;
-
-
-                case SizedInternalFormat.R32f:
-                    typeSize = sizeof(float);
-                break;
-            }
-
-
-            // Save the given data to the buffer
-
-            GL.BufferData(BufferTarget.TextureBuffer, typeSize * length, (nint)data, BufferUsageHint.DynamicDraw);
-        }
+        GL.BufferData(BufferTarget.TextureBuffer, length, (nint)data, BufferUsageHint.DynamicDraw);
 
 
         // Generate the texture, that'll
@@ -724,11 +669,7 @@ public unsafe static class TextureBufferObjExt
     {
         GL.ActiveTexture(unit);
 
-        Console.WriteLine(GL.GetError());
-
         GL.BindTexture(TextureTarget.TextureBuffer, tbObj.TBO);
-
-        Console.WriteLine(GL.GetError());
     }
 }
 
