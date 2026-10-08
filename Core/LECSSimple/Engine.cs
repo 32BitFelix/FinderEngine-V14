@@ -697,6 +697,17 @@ public unsafe static class Finder
     private static int currentLevelID;
 
 
+    // Indicates, if the frame is odd
+
+    public static bool IsOddFrame;
+
+
+    // Indicates, if the current fixed
+    // frame is odd
+
+    public static bool IsOddFixedFrame;
+
+
     /// <summary>
     /// The time it takes between each pulse
     /// of the engine.
@@ -716,12 +727,16 @@ public unsafe static class Finder
     }
 
 
-    // TODO: Improve system sceduling
-
     // The start of an update iteration
 
     public static void Pulse(float dt)
     {
+        // Flip the current value of
+        // IsOddFrame field
+
+        IsOddFrame = !IsOddFrame;
+
+
         // The level events to call
 
         nuint* levelScedule = stackalloc nuint[6];
@@ -750,7 +765,7 @@ public unsafe static class Finder
         // See, if it is time, to
         // call the fixed update
 
-        if(_fixedUpdateCounter >= FixedDeltaTime)
+        if(_fixedUpdateCounter >= (1.0f / FixedUpdatesPerSecond))
         {
             // Evaluate the fixed update compensation
 
@@ -767,6 +782,12 @@ public unsafe static class Finder
             // know, that it's time to call fixed updates
 
             fixedCheck = !fixedCheck;
+
+
+            // Flip the current value of
+            // IsOddFixedFrame field
+
+            IsOddFixedFrame = !IsOddFixedFrame;
         }
 
 
@@ -1022,7 +1043,22 @@ public unsafe static class Finder
                     // of the iterator is the last for
                     // the coming systems
 
-                    iterator.IsLast = (iterator.Shift == 31) || (arch->collection.GetArray(iterator.Shift + 1) == null);
+                    {
+                        bool lastCheck = (iterator.Shift == 31) || (arch->collection.GetArray(iterator.Shift + 1) == null);
+
+                        iterator.State = (byte)(*(byte*)&lastCheck & 1);
+                    }
+
+
+                    // See, if the current iteration
+                    // of the iterator is the first
+                    // for the coming systems
+
+                    {
+                        bool firstCheck = iterator.Shift == 0;
+
+                        iterator.State |= (byte)((*(byte*)&firstCheck & 1) << 1);
+                    }
 
 
                     // Iterate through each scheduled system
@@ -1052,7 +1088,7 @@ public unsafe static class Finder
     /// time frame, a compensation will be added.
     /// </summary>
 
-    public static float FixedDeltaTime => 1 / (float)FixedUpdatesPerSecond + _fixedUpdateCompensation;
+    public static float FixedDeltaTime => (1.0f / FixedUpdatesPerSecond + _fixedUpdateCompensation) * TimeScale;
 
 
     // A compensation for the case,
@@ -1073,7 +1109,7 @@ public unsafe static class Finder
     /// are called per second.
     /// </summary>
 
-    public static int FixedUpdatesPerSecond = 10;
+    public static int FixedUpdatesPerSecond = 20;
 
 
     // TODO: Add slipping to the entity creation

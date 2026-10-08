@@ -19,24 +19,11 @@ flat in vec4 colour;
 // get the color info from
 in vec2 texCoord;
 
-in float tolerance;
-
-
 // Starting point of the
 // fragment shader
 void main()
 {
     vec4 texColour = texture(sampler2D(bindlessTex), texCoord) * colour;
 
-    //if(texColour.a == 0)
-    //    discard;
-
-    //if(texColour.a < tolerance)
-    //    discard;
-
     FragColour = texColour;
-
-    //FragColour = vec4(1.0f, 1.0f, 1.0f, 1.0f);
-
-    //FragColour = colour;
 }

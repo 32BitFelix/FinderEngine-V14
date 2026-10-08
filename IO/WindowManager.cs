@@ -141,14 +141,7 @@ public unsafe static class WindowManager
             // Set a callback for resizing
             // the window
 
-            //GLFW.SetFramebufferSizeCallback(windowPtr, new GLFWCallbacks.FramebufferSizeCallback(_resize));
-
             GLFW.SetFramebufferSizeCallback(windowPtr, Marshal.GetDelegateForFunctionPointer<GLFWCallbacks.FramebufferSizeCallback>((nint)(delegate*<Window*, int, int, void>)&_resize));
-
-
-            /*GL.Enable(EnableCap.DepthTest);
-
-            GL.DepthFunc(DepthFunction.Less);*/
 
 
             GL.Enable(EnableCap.Blend);

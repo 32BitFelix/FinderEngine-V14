@@ -110,7 +110,7 @@ public unsafe static class TransformExt
 
         if(parent == 0 || !Finder.HasComponents(parent, &comp, 1))
         {
-            t.Scale = nRotation;
+            t.Rotation = nRotation;
 
             return;
         }
@@ -121,7 +121,7 @@ public unsafe static class TransformExt
         nRotation -= ptr->GetGlobalRotation(parent);
 
 
-        t.Scale = nRotation;
+        t.Rotation = nRotation;
     }
 
 
@@ -160,7 +160,7 @@ public unsafe static class TransformExt
 
         // Evaluate the x rotation
 
-        mats[1].M11 = mats[1].M44 = 1f; // Set the identities
+        mats[1].M11 = mats[1].M44 = 1.0f; // Set the identities
 
         // Do the rotation stuff
 
@@ -228,7 +228,11 @@ public unsafe static class TransformExt
         int comp = Transform.ComponentID;
 
         if(parent == 0 || !Finder.HasComponents(parent, &comp, 1))
+        {
             t.Translation = nTranslation;
+
+            return;
+        }
 
 
         Transform* ptr = (Transform*)Finder.GetComponent(parent, Transform.ComponentID);

@@ -1,7 +1,4 @@
 
-
-
-using System.Net.Security;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics.X86;
@@ -143,7 +140,145 @@ public unsafe static class Sorting
         {
             byte val = (byte)(*(int*)&swapBuffer[i].Point >> 24);
 
-            array[histogram3[val]--] = swapBuffer[i];
+            int ind = val > 127 ? histogram3[255] - histogram3[val] : histogram3[val];
+
+            array[ind] = swapBuffer[i];
+
+            histogram3[val]--;
+        }
+
+
+        // Free the swapbuffer
+
+        NativeMemory.Free(swapBuffer);
+    }
+
+
+    // A slightly less space efficient
+    // approach to radix sort, inspired
+    // by Michael Herf's approach
+
+    public static void RadixSort(float* array)
+    {
+        // This and the given array will
+        // be used interchangeably for storing
+        // the results of each radix
+
+        int* swapBuffer = (int*)NativeMemory.Alloc((nuint)(sizeof(int) * CompactArray.Length(array)));
+
+
+        int* histogram0 = stackalloc int[256];
+
+        histogram0[0] = -1;
+
+        int* histogram1 = stackalloc int[256];
+
+        histogram1[0] = -1;
+
+        int* histogram2 = stackalloc int[256];
+
+        histogram2[0] = -1;
+
+        int* histogram3 = stackalloc int[256];
+
+        histogram3[128] = -1;
+
+
+        Sse.PrefetchNonTemporal(array);
+
+
+        // Set the records of the histograms
+
+        for(int i = CompactArray.Length(array) - 1; i > -1; i--)
+        {
+            int val = ((int*)array)[i];
+
+
+            histogram0[(byte)val]++;
+
+            val >>= 8;
+
+
+            histogram1[(byte)val]++;
+
+            val >>= 8;
+
+
+            histogram2[(byte)val]++;
+
+            val >>= 8;
+
+
+            histogram3[(byte)val]++;
+        }
+
+
+        // Sum the records of the histograms
+        // with their previous ones
+
+        for(int i = 1; i < 256; i++)
+        {
+            histogram0[i] += histogram0[i - 1];
+
+            histogram1[i] += histogram1[i - 1];
+
+            histogram2[i] += histogram2[i - 1];
+
+            histogram3[(byte)(i + 128)] += histogram3[(byte)((byte)(i + 128) - 1)];
+        }
+
+
+        Sse.PrefetchNonTemporal(array);
+
+        Sse.PrefetchNonTemporal(swapBuffer);
+
+
+        // The first pass
+
+        Sse.Prefetch0(histogram0);
+
+        for(int i = CompactArray.Length(array) - 1; i > -1; i--)
+        {
+            byte val = (byte)((int*)array)[i];
+
+            swapBuffer[histogram0[val]--] = ((int*)array)[i];
+        }
+
+        // The second pass
+
+        Sse.Prefetch0(histogram1);
+
+        for(int i = CompactArray.Length(array) - 1; i > -1; i--)
+        {
+            byte val = (byte)(swapBuffer[i] >> 8);
+
+            ((int*)array)[histogram1[val]--] = swapBuffer[i];
+        }
+
+        // The third pass
+
+        Sse.Prefetch0(histogram2);
+
+        for(int i = CompactArray.Length(array) - 1; i > -1; i--)
+        {
+            byte val = (byte)(((int*)array)[i] >> 16);
+
+            swapBuffer[histogram2[val]--] = ((int*)array)[i];
+        }
+
+        // The fourth pass
+
+        Sse.Prefetch0(histogram3);
+
+        for(int i = CompactArray.Length(array) - 1; i > -1; i--)
+        {
+            byte val = (byte)(swapBuffer[i] >> 24);
+
+            int ind = val > 127 ? histogram3[255] - histogram3[val] : histogram3[val];
+
+            ((int*)array)[ind] = swapBuffer[i];
+
+            histogram3[val]--;
         }
 
 

@@ -260,11 +260,26 @@ public unsafe struct ArchetypeIterator
 
     public int* ComponentOffsets;
 
+
+    // Some unique state, that
+    // an iterator could have
+
+    public byte State;
+
+
     // Indicates, if the given iteration
     // of the system is the last in the
     // current level's cycle
 
-    public bool IsLast;
+    public bool IsLast => (State & 1) == 1;
+
+
+    // Indicates, if the given iteration
+    // of the system is the first in the
+    // current level's cycle
+
+    public bool IsFirst => (State & 2) == 2;
+
 
     // Represents the exponent
     // to calulate the length
@@ -287,6 +302,15 @@ public unsafe static class ArchetypeIteratorExt
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int Length(this ArchetypeIterator iter)
         => 1 << iter.Shift;
+
+
+    // Returns the total size of the
+    // archetype, that the iterator
+    // processes
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int TotalLength(this ArchetypeIterator iter)
+        => iter.Archetype->collection.Length();
 
 
     // Returns the address of the

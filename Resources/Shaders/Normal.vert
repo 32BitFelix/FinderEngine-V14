@@ -59,10 +59,6 @@ flat out vec4 colour;
 // fragment shader (with interpolation)
 out vec2 texCoord;
 
-// Relays the alpha tolerance
-// to the fragments shader
-out float tolerance;
-
 
 // Starting point of the
 // vertex shader
@@ -74,20 +70,7 @@ void main()
 
     // Evaluate the instance ID
     // of the current instance
-    int instanceID;
-
-    {
-        int first = gl_InstanceID % spriteAmount;
-
-        int second = gl_InstanceID - (first * 2) - 1;
-
-        instanceID = gl_InstanceID >= spriteAmount ? second : first;
-    }
-
-
-    // Set the tolerance to
-    // render the incoming fragments with
-    tolerance = gl_InstanceID < spriteAmount ? 1.0f : 0.0f;
+    int instanceID = abs(spriteAmount - gl_InstanceID);
 
 
     // Sample the model matrix
@@ -99,17 +82,11 @@ void main()
 
         model[0] = texelFetch(modelMatBuffer, index);
 
-        index++;
+        model[1] = texelFetch(modelMatBuffer, index + 1);
 
-        model[1] = texelFetch(modelMatBuffer, index);
+        model[2] = texelFetch(modelMatBuffer, index + 2);
 
-        index++;
-
-        model[2] = texelFetch(modelMatBuffer, index);
-
-        index++;
-
-        model[3] = texelFetch(modelMatBuffer, index);
+        model[3] = texelFetch(modelMatBuffer, index + 3);
 
 
         // Set the position of the

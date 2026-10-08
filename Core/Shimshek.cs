@@ -19,74 +19,6 @@ public static unsafe class SpriteRenderSystem
 {
     static SpriteRenderSystem()
     {
-        /*// Define the element buffer object
-
-        {
-            byte[] indices =
-            {
-                0, 1, 2,
-                0, 2, 3
-            };
-
-
-            EBO = GL.GenBuffer();
-
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, EBO);
-
-            fixed(byte* ptr = indices)
-                GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length, (nint)ptr, BufferUsageHint.DynamicDraw);
-        }
-
-
-        // Define the vertex buffer object
-
-        VBO = GL.GenBuffer();
-
-        GL.BindBuffer(BufferTarget.ArrayBuffer, VBO);
-
-        GL.BufferData(BufferTarget.ArrayBuffer, blockSize, 0, BufferUsageHint.DynamicDraw);
-
-
-        // Define the vertex array object
-
-        VAO = GL.GenVertexArray();
-
-        GL.BindVertexArray(VAO);
-
-
-            // Define the pointer to the
-            // bindless texture data
-
-            GL.VertexAttribIPointer(0, 2, VertexAttribIntegerType.Int, blockSize, 0);
-
-            GL.VertexAttribDivisor(0, 1);
-
-            GL.EnableVertexAttribArray(0);
-
-
-            // Define the pointer to the
-            // color modifier
-
-            GL.VertexAttribPointer(1, 4, VertexAttribPointerType.UnsignedByte, true, blockSize, bindlessTexSize);
-
-            GL.VertexAttribDivisor(1, 1);
-
-            GL.EnableVertexAttribArray(1);
-
-
-            // Define the pointer to the
-            // model matrix
-
-            for(byte i = 0; i < 4; i++)
-            {
-                GL.VertexAttribPointer(2 + i, 4, VertexAttribPointerType.Float, false, blockSize, bindlessTexSize + colorModSize + sizeof(float) * 4 * i);
-
-                GL.VertexAttribDivisor(2 + i, 1);
-
-                GL.EnableVertexAttribArray(2 + i);
-            }*/
-
-
         // Define the program for the
         // sprite renderer
 
@@ -125,8 +57,6 @@ public static unsafe class SpriteRenderSystem
 
         VAO = GL.GenVertexArray();
 
-        GL.EnableVertexAttribArray(VAO);
-
 
         // Create the element buffer
 
@@ -161,10 +91,13 @@ public static unsafe class SpriteRenderSystem
     }
 
 
-    // The shader program to 
+    // The shader program to render the sprites with
 
     public static ProgramObj SpriteProgram;
 
+
+    // The buffers to store the information
+    // of the sprites
 
     private static TextureBufferObj bindlessTexRefs;
 
@@ -173,8 +106,24 @@ public static unsafe class SpriteRenderSystem
     private static TextureBufferObj modelMatrices;
 
 
+    // The persistently mapped buffer
+    // references of the texture buffers
+
+    private static long* bindlessTexPMB;
+
+    private static int* colorModPMB;
+
+    private static Matrix4* modelMatPMB;
+
+
+    // The buffers containing the clues
+    // for the draw call
+
     private static int EBO, VAO;
 
+
+    // The list holding the currently
+    // valid sprites
 
     private static EntityPoint* eP;
 
@@ -199,9 +148,68 @@ public static unsafe class SpriteRenderSystem
 
             validSprites++;
             
-            if(CompactArray.Length(eP) < validSprites)
+            if(CompactArray.Length(eP) <= validSprites)
+            {
+                // Resize the array that holds
+                // the entity IDs of the valid sprites
+
                 fixed(EntityPoint** ptr = &eP)
                     CompactArray.Resize(ptr, CompactArray.Length(eP) * 2);
+
+
+                // Recreate the texture buffer, that
+                // stores the bindless textures
+
+                GL.DeleteBuffer(bindlessTexRefs.BO);
+
+                bindlessTexRefs.BO = GL.GenBuffer();
+
+                GL.BindBuffer(BufferTarget.TextureBuffer, bindlessTexRefs.BO);
+
+                GL.BufferStorage(BufferTarget.TextureBuffer, CompactArray.Length(eP) * sizeof(long), 0, BufferStorageFlags.MapWriteBit | BufferStorageFlags.MapPersistentBit | BufferStorageFlags.ClientStorageBit);
+
+                GL.BindTexture(TextureTarget.TextureBuffer, bindlessTexRefs.TBO);
+
+                GL.TexBuffer(TextureBufferTarget.TextureBuffer, SizedInternalFormat.Rg32ui, bindlessTexRefs.BO);
+
+                bindlessTexPMB = (long*)GL.MapBufferRange(BufferTarget.TextureBuffer, 0, CompactArray.Length(eP) * sizeof(long), MapBufferAccessMask.MapWriteBit | MapBufferAccessMask.MapPersistentBit);
+
+
+                // Recreate the texture buffer, that
+                // stores the color modifiers
+
+                GL.DeleteBuffer(colorMods.BO);
+
+                colorMods.BO = GL.GenBuffer();
+
+                GL.BindBuffer(BufferTarget.TextureBuffer, colorMods.BO);
+
+                GL.BufferStorage(BufferTarget.TextureBuffer, CompactArray.Length(eP) * sizeof(int), 0, BufferStorageFlags.MapWriteBit | BufferStorageFlags.MapPersistentBit | BufferStorageFlags.ClientStorageBit);
+
+                GL.BindTexture(TextureTarget.TextureBuffer, colorMods.TBO);
+
+                GL.TexBuffer(TextureBufferTarget.TextureBuffer, SizedInternalFormat.Rgba8, colorMods.BO);
+
+                colorModPMB = (int*)GL.MapBufferRange(BufferTarget.TextureBuffer, 0, CompactArray.Length(eP) * sizeof(int), MapBufferAccessMask.MapWriteBit | MapBufferAccessMask.MapPersistentBit);
+
+
+                // Recreate the texture buffer, that
+                // stores the model matrices
+
+                GL.DeleteBuffer(modelMatrices.BO);
+
+                modelMatrices.BO = GL.GenBuffer();
+
+                GL.BindBuffer(BufferTarget.TextureBuffer, modelMatrices.BO);
+
+                GL.BufferStorage(BufferTarget.TextureBuffer, CompactArray.Length(eP) * sizeof(Matrix4), 0, BufferStorageFlags.MapWriteBit | BufferStorageFlags.MapPersistentBit | BufferStorageFlags.ClientStorageBit);
+
+                GL.BindTexture(TextureTarget.TextureBuffer, modelMatrices.TBO);
+
+                GL.TexBuffer(TextureBufferTarget.TextureBuffer, SizedInternalFormat.Rgba32f, modelMatrices.BO);
+
+                modelMatPMB = (Matrix4*)GL.MapBufferRange(BufferTarget.TextureBuffer, 0, CompactArray.Length(eP) * sizeof(Matrix4), MapBufferAccessMask.MapWriteBit | MapBufferAccessMask.MapPersistentBit);
+            }
 
 
             // Save the entity ID of the new sprite
@@ -252,11 +260,21 @@ public static unsafe class SpriteRenderSystem
         // Set the uniform, that stores
         // the amount of sprites to render
 
-        SpriteProgram.SetUniformInt("spriteAmount", validSprites);
+        SpriteProgram.SetUniformInt("spriteAmount", validSprites - 1);
+
+
+        // Assign the texture buffers
+        // to their respective units
+
+        bindlessTexRefs.Use(TextureUnit.Texture0);
+
+        colorMods.Use(TextureUnit.Texture1);
+
+        modelMatrices.Use(TextureUnit.Texture2);
 
 
         // Saturate the entity-point array with the most
-        // necessary information
+        // necessary information, if the GPU isn't busy
 
         for(int i = validSprites - 1; i > -1; i--)
         {
@@ -283,85 +301,105 @@ public static unsafe class SpriteRenderSystem
 
         Sorting.RadixSort(eP, validSprites);
 
-    
-        // Saturate the bindless texture texture buffer
-        // and bind it to texture unit 0
 
-        GL.BindBuffer(BufferTarget.TextureBuffer, bindlessTexRefs.BO);
+        // Saturate the texture buffers through the
+        // persistently mapped buffer references
 
-        GL.BufferData(BufferTarget.TextureBuffer, validSprites * sizeof(long), 0, BufferUsageHint.DynamicDraw);
-
-        {
-            long* ptr = (long*)GL.MapBuffer(BufferTarget.TextureBuffer, BufferAccess.WriteOnly);
-
-            for(int i = 0; i < validSprites; i++)
-            {
-                Sprite* spr = (Sprite*)Finder.GetComponent(eP[i].Entity, Sprite.ComponentID);
-
-                ptr[i] = spr->Texture.BTO;
-            }
-
-            GL.UnmapBuffer(BufferTarget.TextureBuffer);
-        }
-
-        bindlessTexRefs.Use(TextureUnit.Texture0);
+        uploadToBuffers();
 
 
-        // Saturate the colour modifier texture buffer
-        // and bind it to texture unit 1
-
-        GL.BindBuffer(BufferTarget.TextureBuffer, colorMods.BO);
-
-        GL.BufferData(BufferTarget.TextureBuffer, validSprites * sizeof(byte) * 4, 0, BufferUsageHint.DynamicDraw);
-
-        {
-            int* ptr = (int*)GL.MapBuffer(BufferTarget.TextureBuffer, BufferAccess.WriteOnly);
-
-            for(int i = 0; i < validSprites; i++)
-            {
-                Sprite* spr = (Sprite*)Finder.GetComponent(eP[i].Entity, Sprite.ComponentID);
-
-                ptr[i] = spr->RGBA;
-            }
-
-            GL.UnmapBuffer(BufferTarget.TextureBuffer);
-        }
-
-        colorMods.Use(TextureUnit.Texture1);
-
-
-        // Saturate the model matrix texture buffer
-        // and bind it to texture unit 2
-
-        GL.BindBuffer(BufferTarget.TextureBuffer, modelMatrices.BO);
-
-        GL.BufferData(BufferTarget.TextureBuffer, validSprites * sizeof(Matrix4), 0, BufferUsageHint.DynamicDraw);
-
-        {
-            Matrix4* ptr = (Matrix4*)GL.MapBuffer(BufferTarget.TextureBuffer, BufferAccess.WriteOnly);
-
-            for(int i = 0; i < validSprites; i++)
-            {
-                Transform* tran = (Transform*)Finder.GetComponent(eP[i].Entity, Transform.ComponentID);
-
-                ptr[i] = tran->GetModelMatrix(eP[i].Entity);
-            }
-
-            GL.UnmapBuffer(BufferTarget.TextureBuffer);
-        }
-
-        modelMatrices.Use(TextureUnit.Texture2);
-
-
-        // Bind the EBO, dummy VAO
+        // Bind the EBO and VAO
         // and make a draw call
 
         GL.BindVertexArray(VAO);
 
         GL.BindBuffer(BufferTarget.ElementArrayBuffer, EBO);
 
-        GL.DrawElementsInstanced(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedByte, 0, validSprites << 1);   
+        GL.DrawElementsInstanced(PrimitiveType.Triangles, 6, DrawElementsType.UnsignedByte, 0, validSprites << 1 - 1);  
     }
+
+        // Responsible for updating
+        // the data of the texture buffers
+
+        private static void uploadToBuffers()
+        {
+            /*// Evaluate the amount of currently
+            // free threads and the amount of
+            // elements each can process
+
+            int threadCount = JobCenter.CountFreeThreads();
+
+            int elementsPerThread = validSprites / threadCount;
+
+
+            // Set the overload of the threads
+
+            int* vals = stackalloc int[threadCount * 2];
+
+            for(int i = 0; i < threadCount; i++)
+            {
+                vals[i * 2] = elementsPerThread * i; // Index
+
+                vals[i * 2 + 1] = elementsPerThread; // Length
+            }
+
+            // Add the leftover elements to the last thread
+
+            vals[threadCount * 2 - 1] += validSprites % threadCount;
+
+
+            // Now start the jobs
+
+            Job job = new();
+
+            job.Method = (delegate*<nuint, void>)(delegate*<int*, void>)&uploadJob;
+
+            for(int i = 0; i < threadCount; i++)
+            {
+                job.Overload = (nuint)(&vals[i * 2]);
+
+                JobCenter.RunJob(job);
+            }*/
+
+
+            for(int i = 0; i < validSprites; i++)
+            {
+                Sprite* spr = (Sprite*)Finder.GetComponent(eP[i].Entity, Sprite.ComponentID);
+
+                bindlessTexPMB[i] = spr->Texture.BTO;
+
+                colorModPMB[i] = spr->RGBA;
+
+
+                Transform* tran = (Transform*)Finder.GetComponent(eP[i].Entity, Transform.ComponentID);
+
+                modelMatPMB[i] = tran->GetModelMatrix(eP[i].Entity);
+            }
+        }
+
+
+        /*private static void uploadJob(int* vals)
+        {
+            //Console.WriteLine(vals[0] + " INDEX " + vals[1] + " LENGTH");
+
+
+            for(int i = 0; i < vals[1]; i++)
+            {
+                int index = i + vals[0];
+
+
+                Sprite* spr = (Sprite*)Finder.GetComponent(eP[index].Entity, Sprite.ComponentID);
+
+                bindlessTexPMB[index] = spr->Texture.BTO;
+
+                colorModPMB[index] = spr->RGBA;
+
+
+                Transform* tran = (Transform*)Finder.GetComponent(eP[index].Entity, Transform.ComponentID);
+
+                modelMatPMB[index] = tran->GetModelMatrix(eP[index].Entity);
+            }
+        }*/
 
 
     private static void spritePostDispatch(int cameraID)
@@ -385,6 +423,8 @@ public static unsafe class CameraSystem
         dispatches = CompactArray.Create<nuint>(0);
 
         postDispatches = CompactArray.Create<nuint>(0);
+
+        resetFence();
     }
 
 
@@ -394,6 +434,38 @@ public static unsafe class CameraSystem
 
     public static int[] Init()
         => [Camera.ComponentID, Transform.ComponentID];
+
+
+    // An opengl fence object,
+    // for observing the state of the GPU
+
+    private static nint gpuFence;
+
+    public static bool IsGPUBusy()
+    {
+        // Get the snyc status of the fence
+
+        GL.GetSync(gpuFence, SyncParameterName.SyncStatus, 1, out int len, out int val);
+
+        
+        // Compares the given value
+        // with the numerical
+        // equivalent of GL_UNSIGNALED
+
+        return val == 0x9118;
+    }
+
+
+    // Reset the fence
+
+    private static void resetFence()
+    {
+        nint old = gpuFence;
+
+        gpuFence = GL.FenceSync(SyncCondition.SyncGpuCommandsComplete, WaitSyncFlags.None);
+
+        GL.DeleteSync(old);
+    }
 
 
     // The list of dispatches
@@ -524,6 +596,11 @@ public static unsafe class CameraSystem
 
             postDispatches[d] ^= postDispatches[d];
         }
+
+
+        // Resets the gpu fence
+
+        resetFence();
     }
 }
 
