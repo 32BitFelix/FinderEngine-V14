@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("FinderEngine14")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1c58445b615c9ec6ba1179fa11eb06b006b70aff")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3998b6c9ca50fc8d6a07b26f6e703e6e50e5f58d")]
 [assembly: System.Reflection.AssemblyProductAttribute("FinderEngine14")]
 [assembly: System.Reflection.AssemblyTitleAttribute("FinderEngine14")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
